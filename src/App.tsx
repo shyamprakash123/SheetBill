@@ -1,0 +1,83 @@
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
+import { motion, AnimatePresence } from 'framer-motion'
+import Layout from './components/Layout'
+import Auth from './components/Auth'
+import LandingPage from './components/LandingPage'
+import Dashboard from './pages/Dashboard'
+import Invoices from './pages/Invoices'
+import Products from './pages/Products'
+import Customers from './pages/Customers'
+import Reports from './pages/Reports'
+import Settings from './pages/Settings'
+import { useAuthStore } from './store/auth'
+import { useTheme } from './hooks/useTheme'
+import './index.css'
+
+function App() {
+  const { loading } = useAuthStore()
+  const { isDark } = useTheme()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="w-16 h-16 bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mb-4 mx-auto">
+            <span className="text-white font-bold text-xl">S</span>
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400 font-medium">Loading SheetBill...</p>
+        </motion.div>
+      </div>
+    )
+  }
+
+  return (
+    <Router>
+      <div className={`App ${isDark ? 'dark' : ''}`}>
+        <AnimatePresence mode="wait">
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/app" element={<Layout />}>
+              <Route index element={<Navigate to="/app/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="invoices" element={<Invoices />} />
+              <Route path="products" element={<Products />} />
+              <Route path="customers" element={<Customers />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="settings/:tab" element={<Settings />} />
+            </Route>
+            {/* Legacy routes for backward compatibility */}
+            <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
+            <Route path="/invoices" element={<Navigate to="/app/invoices" replace />} />
+            <Route path="/products" element={<Navigate to="/app/products" replace />} />
+            <Route path="/customers" element={<Navigate to="/app/customers" replace />} />
+            <Route path="/reports" element={<Navigate to="/app/reports" replace />} />
+            <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
+          </Routes>
+        </AnimatePresence>
+        
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: isDark ? '#374151' : '#ffffff',
+              color: isDark ? '#f3f4f6' : '#111827',
+              border: isDark ? '1px solid #4b5563' : '1px solid #e5e7eb',
+            },
+          }}
+        />
+      </div>
+    </Router>
+  )
+}
+
+export default App
