@@ -20,16 +20,34 @@ export default function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAu
     setLoading(true)
     
     try {
+      // Check if popups are allowed by trying to open a test popup
+      const testPopup = window.open('', '_blank', 'width=1,height=1')
+      if (!testPopup || testPopup.closed || typeof testPopup.closed === 'undefined') {
+        // Popup blocked - show instructions
+        toast.error('Popup blocked! Please allow popups for this site and try again.', {
+          duration: 6000,
+        })
+        setLoading(false)
+        return
+      }
+      testPopup.close()
+
       // Open Google OAuth in a popup
       const authUrl = googleAPIService.getAuthUrl()
       const popup = window.open(
         authUrl,
         'google-auth',
-        'width=500,height=600,scrollbars=yes,resizable=yes'
+        'width=500,height=600,scrollbars=yes,resizable=yes,left=' + 
+        (window.screen.width / 2 - 250) + ',top=' + 
+        (window.screen.height / 2 - 300)
       )
 
-      if (!popup) {
-        throw new Error('Popup blocked. Please allow popups for this site.')
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        toast.error('Unable to open authentication window. Please check your popup blocker settings.', {
+          duration: 6000,
+        })
+        setLoading(false)
+        return
       }
 
       // Listen for the popup to close or send a message
@@ -37,7 +55,7 @@ export default function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAu
         if (popup.closed) {
           clearInterval(checkClosed)
           setLoading(false)
-          toast.error('Authentication cancelled')
+          // Don't show error if user just closed the popup
         }
       }, 1000)
 
@@ -87,7 +105,13 @@ export default function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAu
 
     } catch (error) {
       console.error('Error initiating Google auth:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to start Google authentication')
+      if (error instanceof Error && error.message.includes('Popup blocked')) {
+        toast.error('Popup blocked! Please allow popups for this site in your browser settings and try again.', {
+          duration: 8000,
+        })
+      } else {
+        toast.error('Failed to start Google authentication. Please try again.')
+      }
       setLoading(false)
     }
   }
@@ -163,6 +187,13 @@ export default function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAu
                   <p className="text-sm text-blue-800 dark:text-blue-200">
                     <strong>Privacy Note:</strong> We only access the files we create for your invoicing needs. 
                     Your existing Google Drive files remain private.
+                  </p>
+                </div>
+
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    <strong>Note:</strong> This will open a popup window for Google authentication. 
+                    Please allow popups for this site if prompted by your browser.
                   </p>
                 </div>
 
