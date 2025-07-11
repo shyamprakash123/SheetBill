@@ -16,64 +16,11 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 
-// Mock data for vendors
-const mockVendors = [
-  {
-    id: 'VEN-001',
-    name: 'Office Supplies Co.',
-    email: 'contact@officesupplies.com',
-    phone: '+91-9876543210',
-    address: 'Mumbai, Maharashtra',
-    gstin: '27AABCU9603R1ZX',
-    state: 'Maharashtra',
-    country: 'India',
-    category: 'Office Supplies',
-    totalPurchases: 125000,
-    status: 'Active'
-  },
-  {
-    id: 'VEN-002',
-    name: 'Tech Equipment Ltd',
-    email: 'sales@techequipment.com',
-    phone: '+91-9876543211',
-    address: 'Bangalore, Karnataka',
-    gstin: '29AABCU9603R1ZY',
-    state: 'Karnataka',
-    country: 'India',
-    category: 'Equipment',
-    totalPurchases: 450000,
-    status: 'Active'
-  },
-  {
-    id: 'VEN-003',
-    name: 'Software Solutions',
-    email: 'info@softwaresol.com',
-    phone: '+91-9876543212',
-    address: 'Pune, Maharashtra',
-    gstin: '27AABCU9603R1ZZ',
-    state: 'Maharashtra',
-    country: 'India',
-    category: 'Software',
-    totalPurchases: 280000,
-    status: 'Active'
-  },
-  {
-    id: 'VEN-004',
-    name: 'Stationery World',
-    email: 'orders@stationeryworld.com',
-    phone: '+91-9876543213',
-    address: 'Delhi, Delhi',
-    gstin: '07AABCU9603R1ZA',
-    state: 'Delhi',
-    country: 'India',
-    category: 'Stationery',
-    totalPurchases: 75000,
-    status: 'Inactive'
-  }
-]
+import { useSheetsStore } from '../store/sheets'
+import { useAuthStore } from '../store/auth'
 
 export default function Vendors() {
-  const [vendors] = useState(mockVendors)
+  const [vendors, setVendors] = useState([])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -85,6 +32,27 @@ export default function Vendors() {
     gstin: '',
     category: ''
   })
+
+  const { profile } = useAuthStore()
+  const { setSpreadsheetId } = useSheetsStore()
+
+  useEffect(() => {
+    const fetchVendors = async () => {
+      if (!profile?.google_sheet_id) return
+      
+      try {
+        setSpreadsheetId(profile.google_sheet_id)
+        // Fetch vendors from Google Sheets
+        // This would be implemented similar to other data fetching
+        // For now, we'll show empty state
+        setVendors([])
+      } catch (error) {
+        console.error('Error fetching vendors:', error)
+      }
+    }
+
+    fetchVendors()
+  }, [profile])
 
   const handleCreateVendor = async (e: React.FormEvent) => {
     e.preventDefault()

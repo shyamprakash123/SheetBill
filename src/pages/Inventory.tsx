@@ -20,6 +20,7 @@ import toast from 'react-hot-toast'
 
 export default function Inventory() {
   const { products, fetchProducts, addProduct, setSpreadsheetId, loading } = useSheetsStore()
+  const { profile } = useAuthStore()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [filterCategory, setFilterCategory] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -33,9 +34,18 @@ export default function Inventory() {
   })
 
   useEffect(() => {
-    setSpreadsheetId('mock-spreadsheet-id')
-    fetchProducts()
-  }, [])
+    const initData = async () => {
+      if (!profile?.google_sheet_id) return
+      
+      try {
+        setSpreadsheetId(profile.google_sheet_id)
+        await fetchProducts()
+      } catch (error) {
+        console.error('Error fetching products:', error)
+      }
+    }
+    initData()
+  }, [profile])
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault()

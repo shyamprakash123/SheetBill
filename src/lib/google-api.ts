@@ -183,7 +183,7 @@ export class GoogleSheetsAPI {
     const spreadsheetData = {
       properties: {
         title: `SheetBill - ${userEmail}`,
-        locale: 'en_IN',
+        locale: 'en_US',
         timeZone: 'Asia/Kolkata',
         autoRecalc: 'ON_CHANGE'
       },

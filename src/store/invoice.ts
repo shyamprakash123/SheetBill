@@ -53,8 +53,28 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   initializeService: async () => {
     const { profile } = useAuthStore.getState()
     
-    if (!profile?.google_tokens || !profile?.google_sheet_id) {
+    if (!profile?.google_tokens) {
       throw new Error('Google account not connected')
+    }
+
+    // If no spreadsheet ID, create one
+    if (!profile.google_sheet_id) {
+      try {
+        const accessToken = await googleAPIService.getValidAccessToken(profile.google_tokens)
+        const { GoogleSheetsAPI } = await import('../lib/google-api')
+        const sheetsAPI = new GoogleSheetsAPI(accessToken)
+        const spreadsheetId = await sheetsAPI.createUserSpreadsheet(profile.email)
+        
+        // Update profile with new spreadsheet ID
+        const { updateProfile } = useAuthStore.getState()
+        await updateProfile({ google_sheet_id: spreadsheetId })
+        
+        // Update local profile reference
+        profile.google_sheet_id = spreadsheetId
+      } catch (error) {
+        console.error('Error creating spreadsheet:', error)
+        throw new Error('Failed to create spreadsheet')
+      }
     }
 
     try {

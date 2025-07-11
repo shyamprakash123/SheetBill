@@ -1,25 +1,50 @@
 import React, { useState, useEffect } from 'react'
-import { useSheetsStore } from '../store/sheets'
+import { useInvoiceStore } from '../store/invoice'
+import { useAuthStore } from '../store/auth'
 import { ChartBarIcon, DocumentArrowDownIcon, CalendarIcon } from '@heroicons/react/24/outline'
 
 export default function Reports() {
-  const { invoices, products, customers, setSpreadsheetId, fetchInvoices, fetchProducts, fetchCustomers } = useSheetsStore()
+  const { 
+    invoices, 
+    products, 
+    customers, 
+    initializeService,
+    fetchInvoices, 
+    fetchProducts, 
+    fetchCustomers,
+    getInvoiceStats 
+  } = useInvoiceStore()
+  const { profile } = useAuthStore()
   const [dateRange, setDateRange] = useState('30')
+  const [stats, setStats] = useState(null)
 
   useEffect(() => {
-    setSpreadsheetId('mock-spreadsheet-id')
-    fetchInvoices()
-    fetchProducts()
-    fetchCustomers()
-  }, [])
+    const initData = async () => {
+      if (!profile?.google_sheet_id) return
+      
+      try {
+        await initializeService()
+        await Promise.all([
+          fetchInvoices(),
+          fetchProducts(),
+          fetchCustomers()
+        ])
+        const invoiceStats = await getInvoiceStats()
+        setStats(invoiceStats)
+      } catch (error) {
+        console.error('Error fetching reports data:', error)
+      }
+    }
+    initData()
+  }, [profile])
 
-  const totalRevenue = invoices.reduce((sum, inv) => sum + inv.total, 0)
+  const totalRevenue = stats?.totalRevenue || 0
+  const totalPaid = stats?.paidAmount || 0
+  const totalPending = stats?.pendingAmount || 0
   const paidInvoices = invoices.filter(inv => inv.status === 'Paid')
-  const pendingInvoices = invoices.filter(inv => inv.status === 'Pending')
-  const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.total, 0)
-  const totalPending = pendingInvoices.reduce((sum, inv) => sum + inv.total, 0)
+  const pendingInvoices = invoices.filter(inv => inv.status === 'Pending' || inv.status === 'Sent')
 
-  const gstCollected = invoices.reduce((sum, inv) => sum + inv.gst, 0)
+  const gstCollected = invoices.reduce((sum, inv) => sum + inv.taxAmount, 0)
 
   const reportCards = [
     {

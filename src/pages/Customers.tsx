@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useSheetsStore } from '../store/sheets'
+import { useAuthStore } from '../store/auth'
 import { PlusIcon, EyeIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
 export default function Customers() {
   const { customers, fetchCustomers, addCustomer, setSpreadsheetId } = useSheetsStore()
+  const { profile } = useAuthStore()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -15,9 +17,18 @@ export default function Customers() {
   })
 
   useEffect(() => {
-    setSpreadsheetId('mock-spreadsheet-id')
-    fetchCustomers()
-  }, [])
+    const initData = async () => {
+      if (!profile?.google_sheet_id) return
+      
+      try {
+        setSpreadsheetId(profile.google_sheet_id)
+        await fetchCustomers()
+      } catch (error) {
+        console.error('Error fetching customers:', error)
+      }
+    }
+    initData()
+  }, [profile])
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault()

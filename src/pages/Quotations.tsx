@@ -17,56 +17,11 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 
-// Mock data for quotations
-const mockQuotations = [
-  {
-    id: 'QUO-2024-001',
-    customer: 'Acme Corp',
-    date: '2024-01-15',
-    validUntil: '2024-02-14',
-    amount: 15000,
-    tax: 2700,
-    total: 17700,
-    status: 'Sent',
-    items: 3
-  },
-  {
-    id: 'QUO-2024-002',
-    customer: 'Tech Solutions',
-    date: '2024-01-16',
-    validUntil: '2024-02-15',
-    amount: 25000,
-    tax: 4500,
-    total: 29500,
-    status: 'Accepted',
-    items: 5
-  },
-  {
-    id: 'QUO-2024-003',
-    customer: 'StartupXYZ',
-    date: '2024-01-18',
-    validUntil: '2024-02-17',
-    amount: 8000,
-    tax: 1440,
-    total: 9440,
-    status: 'Expired',
-    items: 2
-  },
-  {
-    id: 'QUO-2024-004',
-    customer: 'Enterprise Ltd',
-    date: '2024-01-20',
-    validUntil: '2024-02-19',
-    amount: 35000,
-    tax: 6300,
-    total: 41300,
-    status: 'Draft',
-    items: 7
-  }
-]
+import { useSheetsStore } from '../store/sheets'
+import { useAuthStore } from '../store/auth'
 
 export default function Quotations() {
-  const [quotations] = useState(mockQuotations)
+  const [quotations, setQuotations] = useState([])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -77,6 +32,27 @@ export default function Quotations() {
     validDays: '30',
     status: 'Draft' as const
   })
+
+  const { profile } = useAuthStore()
+  const { setSpreadsheetId } = useSheetsStore()
+
+  useEffect(() => {
+    const fetchQuotations = async () => {
+      if (!profile?.google_sheet_id) return
+      
+      try {
+        setSpreadsheetId(profile.google_sheet_id)
+        // Fetch quotations from Google Sheets
+        // This would be implemented similar to other data fetching
+        // For now, we'll show empty state
+        setQuotations([])
+      } catch (error) {
+        console.error('Error fetching quotations:', error)
+      }
+    }
+
+    fetchQuotations()
+  }, [profile])
 
   const handleCreateQuotation = async (e: React.FormEvent) => {
     e.preventDefault()

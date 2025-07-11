@@ -76,15 +76,28 @@ export default function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAu
             // Create spreadsheet for the user
             const { GoogleSheetsAPI } = await import('../lib/google-api')
             const sheetsAPI = new GoogleSheetsAPI(tokens.access_token)
-            const spreadsheetId = await sheetsAPI.createUserSpreadsheet(userInfo.email)
+            
+            let spreadsheetId
+            try {
+              spreadsheetId = await sheetsAPI.createUserSpreadsheet(userInfo.email)
+            } catch (error) {
+              console.error('Error creating spreadsheet:', error)
+              // If spreadsheet creation fails, still save the tokens
+              // User can try again later or we can create it with a different approach
+              spreadsheetId = null
+            }
 
             // Update user profile with Google tokens and spreadsheet ID
             await updateProfile({
               google_tokens: tokens,
-              google_sheet_id: spreadsheetId
+              google_sheet_id: spreadsheetId || null
             })
 
-            toast.success('Google account connected successfully!')
+            if (spreadsheetId) {
+              toast.success('Google account connected and spreadsheet created successfully!')
+            } else {
+              toast.success('Google account connected! Spreadsheet will be created when you first use the app.')
+            }
             onSuccess()
           } catch (error) {
             console.error('Error processing Google auth:', error)

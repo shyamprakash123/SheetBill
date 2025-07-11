@@ -16,45 +16,11 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 
-// Mock data for purchases
-const mockPurchases = [
-  {
-    id: 'PUR-2024-001',
-    vendor: 'Office Supplies Co.',
-    date: '2024-01-15',
-    dueDate: '2024-02-14',
-    amount: 5000,
-    tax: 900,
-    total: 5900,
-    status: 'Paid',
-    category: 'Office Supplies'
-  },
-  {
-    id: 'PUR-2024-002',
-    vendor: 'Tech Equipment Ltd',
-    date: '2024-01-16',
-    dueDate: '2024-02-15',
-    amount: 25000,
-    tax: 4500,
-    total: 29500,
-    status: 'Pending',
-    category: 'Equipment'
-  },
-  {
-    id: 'PUR-2024-003',
-    vendor: 'Software Solutions',
-    date: '2024-01-18',
-    dueDate: '2024-02-17',
-    amount: 12000,
-    tax: 2160,
-    total: 14160,
-    status: 'Overdue',
-    category: 'Software'
-  }
-]
+import { useSheetsStore } from '../store/sheets'
+import { useAuthStore } from '../store/auth'
 
 export default function Purchases() {
-  const [purchases] = useState(mockPurchases)
+  const [purchases, setPurchases] = useState([])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -65,6 +31,27 @@ export default function Purchases() {
     category: '',
     status: 'Pending' as const
   })
+
+  const { profile } = useAuthStore()
+  const { setSpreadsheetId } = useSheetsStore()
+
+  useEffect(() => {
+    const fetchPurchases = async () => {
+      if (!profile?.google_sheet_id) return
+      
+      try {
+        setSpreadsheetId(profile.google_sheet_id)
+        // Fetch purchases from Google Sheets
+        // This would be implemented similar to other data fetching
+        // For now, we'll show empty state
+        setPurchases([])
+      } catch (error) {
+        console.error('Error fetching purchases:', error)
+      }
+    }
+
+    fetchPurchases()
+  }, [profile])
 
   const handleCreatePurchase = async (e: React.FormEvent) => {
     e.preventDefault()

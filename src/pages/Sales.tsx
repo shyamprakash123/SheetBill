@@ -18,55 +18,35 @@ import Modal from '../components/ui/Modal'
 import { useInvoiceStore } from '../store/invoice'
 import toast from 'react-hot-toast'
 
-// Mock data for demonstration
-const mockInvoices = [
-  {
-    id: 'INV-2024-001',
-    customer_name: 'Acme Corp',
-    invoice_number: 'INV-001',
-    created_at: '2024-01-15',
-    due_date: '2024-02-14',
-    subtotal: 10000,
-    tax_amount: 1800,
-    total_amount: 11800,
-    status: 'paid'
-  },
-  {
-    id: 'INV-2024-002',
-    customer_name: 'Tech Solutions',
-    invoice_number: 'INV-002',
-    created_at: '2024-01-16',
-    due_date: '2024-02-15',
-    subtotal: 15000,
-    tax_amount: 2700,
-    total_amount: 17700,
-    status: 'pending'
-  },
-  {
-    id: 'INV-2024-003',
-    customer_name: 'StartupXYZ',
-    invoice_number: 'INV-003',
-    created_at: '2024-01-18',
-    due_date: '2024-02-17',
-    subtotal: 8000,
-    tax_amount: 1440,
-    total_amount: 9440,
-    status: 'overdue'
-  }
-]
-
 export default function Sales() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [invoices] = useState(mockInvoices)
   
-  const { loading } = useInvoiceStore()
+  const { 
+    invoices, 
+    loading, 
+    initializeService, 
+    fetchInvoices,
+    deleteInvoice 
+  } = useInvoiceStore()
+
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        await initializeService()
+        await fetchInvoices()
+      } catch (error) {
+        console.error('Error initializing sales data:', error)
+      }
+    }
+    initData()
+  }, [])
 
   const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = invoice.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = invoice.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         invoice.id?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || invoice.status === filterStatus
     return matchesSearch && matchesStatus
   })
@@ -78,7 +58,12 @@ export default function Sales() {
 
   const handleDelete = async (invoiceId) => {
     if (window.confirm('Are you sure you want to delete this invoice?')) {
-      toast.success('Invoice deleted successfully')
+      try {
+        await deleteInvoice(invoiceId)
+        toast.success('Invoice deleted successfully')
+      } catch (error) {
+        toast.error('Failed to delete invoice')
+      }
     }
   }
 
@@ -112,13 +97,13 @@ export default function Sales() {
   }
 
   const getTotalRevenue = () => {
-    return invoices.reduce((sum, invoice) => sum + invoice.total_amount, 0)
+    return invoices.reduce((sum, invoice) => sum + invoice.total, 0)
   }
 
   const getPendingAmount = () => {
     return invoices
-      .filter(invoice => invoice.status === 'pending')
-      .reduce((sum, invoice) => sum + invoice.total_amount, 0)
+      .filter(invoice => invoice.status === 'Pending' || invoice.status === 'Sent')
+      .reduce((sum, invoice) => sum + invoice.total, 0)
   }
 
   const getInvoiceCount = () => {
@@ -303,26 +288,26 @@ export default function Sales() {
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {invoice.invoice_number}
+                            {invoice.id}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                            Due: {formatDate(invoice.due_date)}
+                            Due: {formatDate(invoice.dueDate)}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {invoice.customer_name}
+                      {invoice.customerName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(invoice.created_at)}
+                      {formatDate(invoice.date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(invoice.total_amount)}
+                        {formatCurrency(invoice.total)}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        +{formatCurrency(invoice.tax_amount)} tax
+                        +{formatCurrency(invoice.taxAmount)} tax
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
