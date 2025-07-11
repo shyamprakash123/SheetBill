@@ -1,0 +1,429 @@
+import React, { useState } from 'react'
+import { motion } from 'framer-motion'
+import { 
+  PlusIcon, 
+  ShoppingCartIcon,
+  CurrencyRupeeIcon,
+  CalendarIcon,
+  BuildingOfficeIcon,
+  EyeIcon,
+  PencilIcon,
+  TrashIcon,
+  ArrowDownTrayIcon,
+  FunnelIcon
+} from '@heroicons/react/24/outline'
+import Card from '../components/ui/Card'
+import Button from '../components/ui/Button'
+import Modal from '../components/ui/Modal'
+
+// Mock data for purchases
+const mockPurchases = [
+  {
+    id: 'PUR-2024-001',
+    vendor: 'Office Supplies Co.',
+    date: '2024-01-15',
+    dueDate: '2024-02-14',
+    amount: 5000,
+    tax: 900,
+    total: 5900,
+    status: 'Paid',
+    category: 'Office Supplies'
+  },
+  {
+    id: 'PUR-2024-002',
+    vendor: 'Tech Equipment Ltd',
+    date: '2024-01-16',
+    dueDate: '2024-02-15',
+    amount: 25000,
+    tax: 4500,
+    total: 29500,
+    status: 'Pending',
+    category: 'Equipment'
+  },
+  {
+    id: 'PUR-2024-003',
+    vendor: 'Software Solutions',
+    date: '2024-01-18',
+    dueDate: '2024-02-17',
+    amount: 12000,
+    tax: 2160,
+    total: 14160,
+    status: 'Overdue',
+    category: 'Software'
+  }
+]
+
+export default function Purchases() {
+  const [purchases] = useState(mockPurchases)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [newPurchase, setNewPurchase] = useState({
+    vendor: '',
+    amount: '',
+    tax: '',
+    category: '',
+    status: 'Pending' as const
+  })
+
+  const handleCreatePurchase = async (e: React.FormEvent) => {
+    e.preventDefault()
+    // Handle purchase creation logic here
+    setShowCreateModal(false)
+    setNewPurchase({ vendor: '', amount: '', tax: '', category: '', status: 'Pending' })
+  }
+
+  const filteredPurchases = purchases.filter(purchase => {
+    const matchesStatus = filterStatus === 'all' || purchase.status.toLowerCase() === filterStatus.toLowerCase()
+    const matchesSearch = purchase.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         purchase.id.toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesStatus && matchesSearch
+  })
+
+  const totalExpenses = purchases.reduce((sum, pur) => sum + pur.total, 0)
+  const paidAmount = purchases.filter(pur => pur.status === 'Paid').reduce((sum, pur) => sum + pur.total, 0)
+  const pendingAmount = purchases.filter(pur => pur.status === 'Pending').reduce((sum, pur) => sum + pur.total, 0)
+  const overdueCount = purchases.filter(pur => pur.status === 'Overdue').length
+
+  const stats = [
+    {
+      title: 'Total Expenses',
+      value: `₹${totalExpenses.toLocaleString()}`,
+      icon: CurrencyRupeeIcon,
+      color: 'bg-red-500',
+      change: '+5.2%'
+    },
+    {
+      title: 'Paid Amount',
+      value: `₹${paidAmount.toLocaleString()}`,
+      icon: ShoppingCartIcon,
+      color: 'bg-green-500',
+      change: '+12.1%'
+    },
+    {
+      title: 'Pending Amount',
+      value: `₹${pendingAmount.toLocaleString()}`,
+      icon: CalendarIcon,
+      color: 'bg-yellow-500',
+      change: '-3.2%'
+    },
+    {
+      title: 'Overdue Bills',
+      value: overdueCount.toString(),
+      icon: BuildingOfficeIcon,
+      color: 'bg-orange-500',
+      change: overdueCount > 0 ? `${overdueCount} items` : 'None'
+    }
+  ]
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Paid':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+      case 'Pending':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+      case 'Overdue':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+    }
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+      >
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Purchases & Bills</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Track your purchases and manage vendor bills
+          </p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <Button variant="outline" size="sm">
+            <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            New Purchase
+          </Button>
+        </div>
+      </motion.div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <motion.div
+            key={stat.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+          >
+            <Card hover className="relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    {stat.title}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                    {stat.value}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {stat.change}
+                  </p>
+                </div>
+                <div className={`p-3 rounded-lg ${stat.color}`}>
+                  <stat.icon className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Filters and Search */}
+      <Card>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search purchases..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <EyeIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+            
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="overdue">Overdue</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm">
+              <FunnelIcon className="h-4 w-4 mr-2" />
+              More Filters
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Purchases Table */}
+      <Card padding="none">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            All Purchases ({filteredPurchases.length})
+          </h3>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Purchase
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Vendor
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredPurchases.map((purchase, index) => (
+                <motion.tr
+                  key={purchase.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center mr-3">
+                        <ShoppingCartIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {purchase.id}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Due: {purchase.dueDate}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {purchase.vendor}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 rounded-full">
+                      {purchase.category}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {purchase.date}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      ₹{purchase.total.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      +₹{purchase.tax} tax
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(purchase.status)}`}>
+                      {purchase.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex items-center space-x-2">
+                      <button className="p-1 text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 transition-colors">
+                        <EyeIcon className="h-4 w-4" />
+                      </button>
+                      <button className="p-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors">
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      <button className="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors">
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Create Purchase Modal */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create New Purchase"
+      >
+        <form onSubmit={handleCreatePurchase} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Vendor Name
+            </label>
+            <input
+              type="text"
+              required
+              value={newPurchase.vendor}
+              onChange={(e) => setNewPurchase({ ...newPurchase, vendor: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Enter vendor name"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Category
+            </label>
+            <select
+              value={newPurchase.category}
+              onChange={(e) => setNewPurchase({ ...newPurchase, category: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Select category</option>
+              <option value="Office Supplies">Office Supplies</option>
+              <option value="Equipment">Equipment</option>
+              <option value="Software">Software</option>
+              <option value="Services">Services</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Amount (₹)
+              </label>
+              <input
+                type="number"
+                required
+                step="0.01"
+                value={newPurchase.amount}
+                onChange={(e) => setNewPurchase({ ...newPurchase, amount: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tax (₹)
+              </label>
+              <input
+                type="number"
+                required
+                step="0.01"
+                value={newPurchase.tax}
+                onChange={(e) => setNewPurchase({ ...newPurchase, tax: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Status
+            </label>
+            <select
+              value={newPurchase.status}
+              onChange={(e) => setNewPurchase({ ...newPurchase, status: e.target.value as any })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="Pending">Pending</option>
+              <option value="Paid">Paid</option>
+            </select>
+          </div>
+          
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCreateModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit">
+              Create Purchase
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  )
+}

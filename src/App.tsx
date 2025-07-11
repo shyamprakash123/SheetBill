@@ -6,9 +6,12 @@ import Layout from './components/Layout'
 import Auth from './components/Auth'
 import LandingPage from './components/LandingPage'
 import Dashboard from './pages/Dashboard'
-import Invoices from './pages/Invoices'
-import Products from './pages/Products'
+import Sales from './pages/Sales'
+import Purchases from './pages/Purchases'
+import Quotations from './pages/Quotations'
+import Inventory from './pages/Inventory'
 import Customers from './pages/Customers'
+import Vendors from './pages/Vendors'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import { useAuthStore } from './store/auth'
@@ -47,17 +50,20 @@ function App() {
             <Route path="/app" element={<Layout />}>
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
-              <Route path="invoices" element={<Invoices />} />
-              <Route path="products" element={<Products />} />
+              <Route path="sales" element={<Sales />} />
+              <Route path="purchases" element={<Purchases />} />
+              <Route path="quotations" element={<Quotations />} />
+              <Route path="inventory" element={<Inventory />} />
               <Route path="customers" element={<Customers />} />
+              <Route path="vendors" element={<Vendors />} />
               <Route path="reports" element={<Reports />} />
               <Route path="settings" element={<Settings />} />
               <Route path="settings/:tab" element={<Settings />} />
             </Route>
             {/* Legacy routes for backward compatibility */}
             <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
-            <Route path="/invoices" element={<Navigate to="/app/invoices" replace />} />
-            <Route path="/products" element={<Navigate to="/app/products" replace />} />
+            <Route path="/invoices" element={<Navigate to="/app/sales" replace />} />
+            <Route path="/products" element={<Navigate to="/app/inventory" replace />} />
             <Route path="/customers" element={<Navigate to="/app/customers" replace />} />
             <Route path="/reports" element={<Navigate to="/app/reports" replace />} />
             <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
