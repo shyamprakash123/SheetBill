@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/auth'
-import { useSheetsStore } from '../store/sheets'
+import { useInvoiceStore } from '../store/invoice'
 import {
   DocumentTextIcon,
   CubeIcon,
@@ -15,6 +15,8 @@ import {
 } from '@heroicons/react/24/outline'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
+import GoogleAuthModal from '../components/GoogleAuthModal'
+import { useState } from 'react'
 
 export default function Dashboard() {
   const { profile } = useAuthStore()
@@ -22,29 +24,49 @@ export default function Dashboard() {
     invoices, 
     products, 
     customers, 
-    fetchInvoices, 
-    fetchProducts, 
-    fetchCustomers, 
-    setSpreadsheetId,
+    initializeService,
+    getInvoiceStats,
     loading 
-  } = useSheetsStore()
+  } = useInvoiceStore()
+  
+  const [showGoogleAuth, setShowGoogleAuth] = useState(false)
+  const [stats, setStats] = useState<any>(null)
 
   useEffect(() => {
-    setSpreadsheetId('mock-spreadsheet-id')
-    fetchInvoices()
-    fetchProducts()
-    fetchCustomers()
-  }, [])
+    const initData = async () => {
+      if (!profile?.google_tokens || !profile?.google_sheet_id) {
+        setShowGoogleAuth(true)
+        return
+      }
 
-  const totalRevenue = invoices.reduce((sum, inv) => sum + inv.total, 0)
-  const paidInvoices = invoices.filter(inv => inv.status === 'Paid')
-  const pendingRevenue = invoices.filter(inv => inv.status === 'Pending').reduce((sum, inv) => sum + inv.total, 0)
-  const overdueInvoices = invoices.filter(inv => inv.status === 'Overdue')
+      try {
+        await initializeService()
+        const invoiceStats = await getInvoiceStats()
+        setStats(invoiceStats)
+      } catch (error) {
+        console.error('Error initializing dashboard:', error)
+        setShowGoogleAuth(true)
+      }
+    }
 
-  const stats = [
+    initData()
+  }, [profile])
+
+  const handleGoogleAuthSuccess = async () => {
+    setShowGoogleAuth(false)
+    try {
+      await initializeService()
+      const invoiceStats = await getInvoiceStats()
+      setStats(invoiceStats)
+    } catch (error) {
+      console.error('Error after Google auth:', error)
+    }
+  }
+
+  const dashboardStats = [
     {
       name: 'Total Revenue',
-      value: `₹${totalRevenue.toLocaleString()}`,
+      value: `₹${stats?.totalRevenue?.toLocaleString() || '0'}`,
       icon: CurrencyRupeeIcon,
       change: '+15.3%',
       changeType: 'increase' as const,
@@ -52,9 +74,9 @@ export default function Dashboard() {
     },
     {
       name: 'Total Invoices',
-      value: invoices.length.toString(),
+      value: stats?.totalInvoices?.toString() || '0',
       icon: DocumentTextIcon,
-      change: `${paidInvoices.length} paid`,
+      change: `${stats?.paidCount || 0} paid`,
       changeType: 'neutral' as const,
       color: 'bg-blue-500',
     },
@@ -82,28 +104,28 @@ export default function Dashboard() {
       title: 'New Invoice',
       description: 'Create a new invoice',
       icon: DocumentTextIcon,
-      href: '/invoices',
+      href: '/app/sales',
       color: 'bg-blue-500',
     },
     {
       title: 'Add Product',
       description: 'Add a new product',
       icon: CubeIcon,
-      href: '/products',
+      href: '/app/inventory',
       color: 'bg-purple-500',
     },
     {
       title: 'Add Customer',
       description: 'Add a new customer',
       icon: UserGroupIcon,
-      href: '/customers',
+      href: '/app/customers',
       color: 'bg-green-500',
     },
     {
       title: 'View Reports',
       description: 'Check business insights',
       icon: CurrencyRupeeIcon,
-      href: '/reports',
+      href: '/app/reports',
       color: 'bg-orange-500',
     },
   ]
@@ -117,7 +139,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <>
+      <div className="space-y-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -138,7 +161,7 @@ export default function Dashboard() {
               <EyeIcon className="h-4 w-4 mr-2" />
               View All
             </Button>
-            <Link to="/invoices">
+            <Link to="/app/sales">
               <Button size="sm">
                 <PlusIcon className="h-4 w-4 mr-2" />
                 New Invoice
@@ -150,7 +173,7 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
+        {dashboardStats.map((stat, index) => (
           <motion.div
             key={stat.name}
             initial={{ opacity: 0, y: 20 }}
@@ -205,7 +228,7 @@ export default function Dashboard() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Recent Invoices
               </h3>
-              <Link to="/invoices">
+              <Link to="/app/sales">
                 <Button variant="outline" size="sm">
                   View All
                 </Button>
@@ -243,7 +266,7 @@ export default function Dashboard() {
                           {invoice.id}
                         </p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {invoice.customer}
+                          {invoice.customerName}
                         </p>
                       </div>
                     </div>
@@ -268,7 +291,7 @@ export default function Dashboard() {
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <DocumentTextIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No invoices yet. Create your first invoice to get started.</p>
-                  <Link to="/invoices" className="mt-2 inline-block">
+                  <Link to="/app/sales" className="mt-2 inline-block">
                     <Button size="sm">Create Invoice</Button>
                   </Link>
                 </div>
@@ -326,25 +349,25 @@ export default function Dashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Pending Revenue</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  ₹{pendingRevenue.toLocaleString()}
+                  ₹{stats?.pendingAmount?.toLocaleString() || '0'}
                 </span>
               </div>
               
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Overdue Invoices</span>
                 <span className={`font-semibold ${
-                  overdueInvoices.length > 0 
+                  (stats?.overdueCount || 0) > 0 
                     ? 'text-red-600 dark:text-red-400' 
                     : 'text-green-600 dark:text-green-400'
                 }`}>
-                  {overdueInvoices.length}
+                  {stats?.overdueCount || 0}
                 </span>
               </div>
               
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Collection Rate</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {invoices.length > 0 ? Math.round((paidInvoices.length / invoices.length) * 100) : 0}%
+                  {stats?.totalInvoices > 0 ? Math.round((stats.paidCount / stats.totalInvoices) * 100) : 0}%
                 </span>
               </div>
             </div>
@@ -378,6 +401,14 @@ export default function Dashboard() {
           </Card>
         </motion.div>
       )}
-    </div>
+      </div>
+
+      {/* Google Auth Modal */}
+      <GoogleAuthModal
+        isOpen={showGoogleAuth}
+        onClose={() => setShowGoogleAuth(false)}
+        onSuccess={handleGoogleAuthSuccess}
+      />
+    </>
   )
 }
