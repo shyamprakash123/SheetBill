@@ -14,6 +14,7 @@ import Customers from './pages/Customers'
 import Vendors from './pages/Vendors'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import GoogleAuthCallback from './pages/GoogleAuthCallback'
 import { useAuthStore } from './store/auth'
 import { useTheme } from './hooks/useTheme'
 import './index.css'
@@ -47,6 +48,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
             <Route path="/app" element={<Layout />}>
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />

@@ -51,10 +51,13 @@ interface SheetsState {
   addInvoice: (invoice: Omit<Invoice, 'id'>) => Promise<void>
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>
   addCustomer: (customer: Omit<Customer, 'id'>) => Promise<void>
+  addVendor: (vendor: any) => Promise<void>
+  addQuotation: (quotation: any) => Promise<void>
   updateInvoiceStatus: (invoiceId: string, status: Invoice['status']) => Promise<void>
-  deleteInvoice: (invoiceId: string) => Promise<void>
-  deleteProduct: (productId: string) => Promise<void>
-  deleteCustomer: (customerId: string) => Promise<void>
+  updateRecordStatus: (sheetName: string, recordId: string, status: string) => Promise<void>
+  searchAllSheets: (searchTerm: string) => Promise<any[]>
+  exportSheetAsCSV: (sheetName: string) => Promise<string>
+  getSheetStats: () => Promise<any>
   clearError: () => void
 }
 
@@ -227,6 +230,50 @@ export const useSheetsStore = create<SheetsState>((set, get) => ({
     }
   },
 
+  addVendor: async (vendorData: any) => {
+    const { service, spreadsheetId } = get()
+    if (!spreadsheetId) return
+
+    set({ loading: true, error: null })
+    try {
+      const vendor = {
+        id: `VEN-${Date.now()}`,
+        ...vendorData,
+      }
+      
+      await service.addVendor(spreadsheetId, vendor)
+      // Note: You might want to add a fetchVendors method similar to other entities
+    } catch (error) {
+      console.error('Error adding vendor:', error)
+      set({ error: 'Failed to add vendor' })
+      throw error
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  addQuotation: async (quotationData: any) => {
+    const { service, spreadsheetId } = get()
+    if (!spreadsheetId) return
+
+    set({ loading: true, error: null })
+    try {
+      const quotation = {
+        id: `QUO-${Date.now()}`,
+        ...quotationData,
+      }
+      
+      await service.addQuotation(spreadsheetId, quotation)
+      // Note: You might want to add a fetchQuotations method similar to other entities
+    } catch (error) {
+      console.error('Error adding quotation:', error)
+      set({ error: 'Failed to add quotation' })
+      throw error
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   updateInvoiceStatus: async (invoiceId: string, status: Invoice['status']) => {
     const { service, spreadsheetId } = get()
     if (!spreadsheetId) return
@@ -244,51 +291,71 @@ export const useSheetsStore = create<SheetsState>((set, get) => ({
     }
   },
 
-  deleteInvoice: async (invoiceId: string) => {
+  updateRecordStatus: async (sheetName: string, recordId: string, status: string) => {
     const { service, spreadsheetId } = get()
     if (!spreadsheetId) return
 
     set({ loading: true, error: null })
     try {
-      await service.deleteRecord(spreadsheetId, 'Invoices', invoiceId)
-      await get().fetchInvoices()
+      await service.updateRecordStatus(spreadsheetId, sheetName, recordId, status)
+      // Refresh the appropriate data based on sheet name
+      if (sheetName === 'Invoices') await get().fetchInvoices()
+      if (sheetName === 'Products') await get().fetchProducts()
+      if (sheetName === 'Customers') await get().fetchCustomers()
     } catch (error) {
-      console.error('Error deleting invoice:', error)
-      set({ error: 'Failed to delete invoice' })
+      console.error('Error updating record status:', error)
+      set({ error: 'Failed to update record status' })
       throw error
     } finally {
       set({ loading: false })
     }
   },
 
-  deleteProduct: async (productId: string) => {
+  searchAllSheets: async (searchTerm: string) => {
     const { service, spreadsheetId } = get()
-    if (!spreadsheetId) return
+    if (!spreadsheetId) return []
 
     set({ loading: true, error: null })
     try {
-      await service.deleteRecord(spreadsheetId, 'Products', productId)
-      await get().fetchProducts()
+      const results = await service.searchAllSheets(spreadsheetId, searchTerm)
+      return results
     } catch (error) {
-      console.error('Error deleting product:', error)
-      set({ error: 'Failed to delete product' })
+      console.error('Error searching sheets:', error)
+      set({ error: 'Failed to search sheets' })
       throw error
     } finally {
       set({ loading: false })
     }
   },
 
-  deleteCustomer: async (customerId: string) => {
+  exportSheetAsCSV: async (sheetName: string) => {
     const { service, spreadsheetId } = get()
-    if (!spreadsheetId) return
+    if (!spreadsheetId) return ''
 
     set({ loading: true, error: null })
     try {
-      await service.deleteRecord(spreadsheetId, 'Customers', customerId)
-      await get().fetchCustomers()
+      const csv = await service.exportSheetAsCSV(spreadsheetId, sheetName)
+      return csv
     } catch (error) {
-      console.error('Error deleting customer:', error)
-      set({ error: 'Failed to delete customer' })
+      console.error('Error exporting sheet:', error)
+      set({ error: 'Failed to export sheet' })
+      throw error
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  getSheetStats: async () => {
+    const { service, spreadsheetId } = get()
+    if (!spreadsheetId) return {}
+
+    set({ loading: true, error: null })
+    try {
+      const stats = await service.getSheetStats(spreadsheetId)
+      return stats
+    } catch (error) {
+      console.error('Error getting sheet stats:', error)
+      set({ error: 'Failed to get sheet stats' })
       throw error
     } finally {
       set({ loading: false })
