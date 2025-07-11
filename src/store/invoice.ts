@@ -63,7 +63,37 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         const accessToken = await googleAPIService.getValidAccessToken(profile.google_tokens)
         const { GoogleSheetsAPI } = await import('../lib/google-api')
         const sheetsAPI = new GoogleSheetsAPI(accessToken)
-        const spreadsheetId = await sheetsAPI.createUserSpreadsheet(profile.email)
+        
+        let spreadsheetId
+        try {
+          spreadsheetId = await sheetsAPI.createUserSpreadsheet(profile.email)
+        } catch (error) {
+          console.error('Error creating spreadsheet with headers:', error)
+          // Try creating a basic spreadsheet without formatting
+          const basicSpreadsheet = {
+            properties: {
+              title: `SheetBill - ${profile.email}`,
+              locale: 'en_US',
+              timeZone: 'Asia/Kolkata'
+            }
+          }
+          
+          const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(basicSpreadsheet)
+          })
+          
+          if (!response.ok) {
+            throw new Error('Failed to create basic spreadsheet')
+          }
+          
+          const result = await response.json()
+          spreadsheetId = result.spreadsheetId
+        }
         
         // Update profile with new spreadsheet ID
         const { updateProfile } = useAuthStore.getState()
@@ -73,7 +103,8 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         profile.google_sheet_id = spreadsheetId
       } catch (error) {
         console.error('Error creating spreadsheet:', error)
-        throw new Error('Failed to create spreadsheet')
+        set({ error: 'Failed to create spreadsheet. You can still use the app with limited functionality.' })
+        return // Don't throw, allow app to continue
       }
     }
 
@@ -94,7 +125,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     } catch (error) {
       console.error('Error initializing invoice service:', error)
       set({ error: error instanceof Error ? error.message : 'Failed to initialize service' })
-      throw error
+      // Don't throw, allow app to continue with limited functionality
     }
   },
 

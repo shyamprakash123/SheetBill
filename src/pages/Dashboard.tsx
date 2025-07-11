@@ -60,6 +60,8 @@ export default function Dashboard() {
       setStats(invoiceStats)
     } catch (error) {
       console.error('Error after Google auth:', error)
+      // Don't show the auth modal again, just show a warning
+      toast.error('Connected to Google but had issues setting up spreadsheet. You can still use the app.')
     }
   }
 

@@ -172,6 +172,10 @@ export class GoogleSheetsService {
 
   // Initialize headers for each sheet
   private async initializeSheetHeaders(spreadsheetId: string) {
+    // First get the spreadsheet info to get sheet IDs
+    const spreadsheetInfo = await this.getSpreadsheetInfo(spreadsheetId)
+    const sheets = spreadsheetInfo.sheets || []
+    
     const headers = {
       'Dashboard': ['Metric', 'Value', 'Period', 'Change', 'Last Updated'],
       'Invoices': ['Invoice ID', 'Customer', 'Date', 'Due Date', 'Amount', 'Tax', 'Total', 'Status', 'Notes', 'Payment Method', 'Reference', 'Created By', 'Updated At', 'PDF Link', 'Sent Date'],
@@ -200,15 +204,22 @@ export class GoogleSheetsService {
     await this.batchUpdateSheetData(spreadsheetId, requests)
     
     // Format headers with bold styling
-    await this.formatHeaders(spreadsheetId)
+    await this.formatHeaders(spreadsheetId, sheets)
   }
 
   // Format headers with bold styling and colors
-  private async formatHeaders(spreadsheetId: string): Promise<void> {
-    const requests = [
-      {
+  private async formatHeaders(spreadsheetId: string, sheets: any[]): Promise<void> {
+    if (!sheets || sheets.length === 0) {
+      console.warn('No sheets found for formatting')
+      return
+    }
+
+    // Apply formatting to each sheet
+    for (const sheet of sheets) {
+      const formatRequest = {
         repeatCell: {
           range: {
+            sheetId: sheet.properties.sheetId,
             startRowIndex: 0,
             endRowIndex: 1
           },
@@ -222,9 +233,14 @@ export class GoogleSheetsService {
           fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
         }
       }
-    ]
-
-    await this.batchUpdate(spreadsheetId, { requests })
+      
+      try {
+        await this.batchUpdate(spreadsheetId, { requests: [formatRequest] })
+      } catch (error) {
+        console.warn(`Failed to format sheet ${sheet.properties.title}:`, error)
+        // Continue with other sheets even if one fails
+      }
+    }
   }
 
   // Batch update multiple ranges

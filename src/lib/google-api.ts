@@ -222,6 +222,10 @@ export class GoogleSheetsAPI {
 
   // Initialize headers for all sheets
   private async initializeSheetHeaders(spreadsheetId: string) {
+    // First get the spreadsheet info to get sheet IDs
+    const spreadsheetInfo = await this.getSpreadsheetInfo(spreadsheetId)
+    const sheets = spreadsheetInfo.sheets || []
+    
     const headers = {
       'Invoices': [
         'Invoice ID', 'Customer ID', 'Customer Name', 'Date', 'Due Date', 
@@ -267,15 +271,21 @@ export class GoogleSheetsAPI {
     }
 
     await this.batchUpdateSheetData(spreadsheetId, requests)
-    await this.formatHeaders(spreadsheetId)
+    await this.formatHeaders(spreadsheetId, sheets)
   }
 
   // Format headers
-  private async formatHeaders(spreadsheetId: string): Promise<void> {
+  private async formatHeaders(spreadsheetId: string, sheets: any[]): Promise<void> {
+    if (!sheets || sheets.length === 0) {
+      console.warn('No sheets found for formatting')
+      return
+    }
+
     const requests = [
       {
         repeatCell: {
           range: {
+            sheetId: sheets[0].properties.sheetId, // Use the first sheet's ID
             startRowIndex: 0,
             endRowIndex: 1
           },
@@ -291,7 +301,32 @@ export class GoogleSheetsAPI {
       }
     ]
 
-    await this.batchUpdate(spreadsheetId, { requests })
+    // Apply formatting to each sheet
+    for (const sheet of sheets) {
+      const formatRequest = {
+        repeatCell: {
+          range: {
+            sheetId: sheet.properties.sheetId,
+            startRowIndex: 0,
+            endRowIndex: 1
+          },
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
+              textFormat: { bold: true },
+              horizontalAlignment: 'CENTER'
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+        }
+      }
+      
+      try {
+        await this.batchUpdate(spreadsheetId, { requests: [formatRequest] })
+      } catch (error) {
+        console.warn(`Failed to format sheet ${sheet.properties.title}:`, error)
+      }
+    }
   }
 
   // Batch update sheet data
