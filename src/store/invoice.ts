@@ -56,7 +56,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     if (!profile?.google_tokens) {
       throw new Error('Google account not connected')
     }
-
+    console.log("google id",profile.google_sheet_id);
     // If no spreadsheet ID, create one
     if (!profile.google_sheet_id) {
       try {
@@ -280,6 +280,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const products = await service.getProducts()
+      console.log(products);
       set({ products })
     } catch (error) {
       console.error('Error fetching products:', error)

@@ -102,23 +102,23 @@ export class InvoiceService {
       invoice.pdfUrl || ''
     ]
 
-    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Invoices!A:O', [row])
+    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Invoices!A1', [row])
     return invoice
   }
 
   async getInvoices(): Promise<Invoice[]> {
     try {
-      const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Invoices!A:O')
+      const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Invoices!A:M')
       if (!data || data.length === 0) {
         return []
       }
       
-      const [headers, ...rows] = data
-      if (!rows || rows.length === 0) {
-        return []
-      }
+      // const [headers, ...rows] = data
+      // if (!rows || rows.length === 0) {
+      //   return []
+      // }
 
-      return rows.map(row => ({
+      return data.map(row => ({
         id: row[0] || '',
         customerId: row[1] || '',
         customerName: row[2] || '',
@@ -222,7 +222,7 @@ export class InvoiceService {
       customer.status
     ]
 
-    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Customers!A:K', [row])
+    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Customers!A1', [row])
     return customer
   }
 
@@ -233,12 +233,12 @@ export class InvoiceService {
         return []
       }
       
-      const [headers, ...rows] = data
-      if (!rows || rows.length === 0) {
-        return []
-      }
+      // const [headers, ...rows] = data
+      // if (!rows || rows.length === 0) {
+      //   return []
+      // }
 
-      return rows.map(row => ({
+      return data.map(row => ({
         id: row[0] || '',
         name: row[1] || '',
         email: row[2] || '',
@@ -316,42 +316,44 @@ export class InvoiceService {
       product.status
     ]
 
-    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Products!A:M', [row])
+    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Products!A1', [row])
     return product
   }
 
   async getProducts(): Promise<Product[]> {
-    try {
-      const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Products!A:M')
-      if (!data || data.length === 0) {
-        return []
-      }
-      
-      const [headers, ...rows] = data
-      if (!rows || rows.length === 0) {
-        return []
-      }
+  try {
+    const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Products!A:M')
+    if (!data || data.length === 0) return []
 
-      return rows.map(row => ({
-        id: row[0] || '',
-        name: row[1] || '',
-        description: row[2] || '',
-        price: parseFloat(row[3]) || 0,
-        stock: isNaN(parseFloat(row[4])) ? row[4] : parseFloat(row[4]),
-        hsnCode: row[5] || '',
-        taxRate: parseFloat(row[6]) || 18,
-        category: row[7] || '',
-        unit: row[8] || 'pcs',
-        imageUrl: row[9] || '',
-        createdAt: row[10] || '',
-        updatedAt: row[11] || '',
-        status: (row[12] as Product['status']) || 'Active'
-      })).filter(product => product.id) // Filter out empty rows
-    } catch (error) {
-      console.error('Error getting products:', error)
-      return [] // Return empty array instead of throwing
-    }
+    // const [headers, ...rows] = data
+    // if (!rows || rows.length === 0) return []
+
+    return data
+      .filter(row => row.length >= 13 && row[0]) // Ensure data completeness
+      .map(row => {
+        const stockVal = parseFloat(row[4])
+        return {
+          id: row[0] || '',
+          name: row[1] || '',
+          description: row[2] || '',
+          price: parseFloat(row[3]) || 0,
+          stock: isNaN(stockVal) ? (row[4] || '') : stockVal,
+          hsnCode: row[5] || '',
+          taxRate: parseFloat(row[6]) || 18,
+          category: row[7] || '',
+          unit: row[8] || 'pcs',
+          imageUrl: row[9] || '',
+          createdAt: row[10] || '',
+          updatedAt: row[11] || '',
+          status: (row[12] as Product['status']) || 'Active'
+        }
+      })
+  } catch (error) {
+    console.error('Error getting products:', error)
+    return []
   }
+}
+
 
   async updateProduct(productId: string, updates: Partial<Product>): Promise<Product> {
     const products = await this.getProducts()
