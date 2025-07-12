@@ -107,10 +107,18 @@ export class InvoiceService {
   }
 
   async getInvoices(): Promise<Invoice[]> {
-    const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Invoices!A:O')
+    try {
+      const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Invoices!A:O')
+      if (!data || data.length === 0) {
+        return []
+      }
+      
     const [headers, ...rows] = data
+      if (!rows || rows.length === 0) {
+        return []
+      }
 
-    return rows.map(row => ({
+      return rows.map(row => ({
       id: row[0] || '',
       customerId: row[1] || '',
       customerName: row[2] || '',
@@ -126,7 +134,11 @@ export class InvoiceService {
       createdAt: row[12] || '',
       updatedAt: row[13] || '',
       pdfUrl: row[14] || ''
-    }))
+      })).filter(invoice => invoice.id) // Filter out empty rows
+    } catch (error) {
+      console.error('Error getting invoices:', error)
+      return [] // Return empty array instead of throwing
+    }
   }
 
   async getInvoiceById(invoiceId: string): Promise<Invoice | null> {
@@ -215,7 +227,12 @@ export class InvoiceService {
   }
 
   async getCustomers(): Promise<Customer[]> {
-    const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Customers!A:K')
+    try {
+      const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Customers!A:K')
+      if (!data || data.length === 0) {
+        return []
+      }
+      
     const [headers, ...rows] = data
 
     return rows.map(row => ({
@@ -251,8 +268,11 @@ export class InvoiceService {
       updatedCustomer.address,
       updatedCustomer.city,
       updatedCustomer.state,
+      if (!rows || rows.length === 0) {
+        return []
+      }
       updatedCustomer.country,
-      updatedCustomer.gstin || '',
+      return rows.map(row => ({
       updatedCustomer.createdAt,
       updatedCustomer.status
     ]
@@ -264,7 +284,11 @@ export class InvoiceService {
       [row]
     )
 
-    return updatedCustomer
+      })).filter(customer => customer.id) // Filter out empty rows
+    } catch (error) {
+      console.error('Error getting customers:', error)
+      return [] // Return empty array instead of throwing
+    }
   }
 
   // Product CRUD operations
@@ -297,10 +321,18 @@ export class InvoiceService {
   }
 
   async getProducts(): Promise<Product[]> {
-    const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Products!A:M')
+    try {
+      const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Products!A:M')
+      if (!data || data.length === 0) {
+        return []
+      }
+      
     const [headers, ...rows] = data
+      if (!rows || rows.length === 0) {
+        return []
+      }
 
-    return rows.map(row => ({
+      return rows.map(row => ({
       id: row[0] || '',
       name: row[1] || '',
       description: row[2] || '',
@@ -314,7 +346,11 @@ export class InvoiceService {
       createdAt: row[10] || '',
       updatedAt: row[11] || '',
       status: (row[12] as Product['status']) || 'Active'
-    }))
+      })).filter(product => product.id) // Filter out empty rows
+    } catch (error) {
+      console.error('Error getting products:', error)
+      return [] // Return empty array instead of throwing
+    }
   }
 
   async updateProduct(productId: string, updates: Partial<Product>): Promise<Product> {

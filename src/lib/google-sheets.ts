@@ -173,7 +173,14 @@ export class GoogleSheetsService {
   // Initialize headers for each sheet
   private async initializeSheetHeaders(spreadsheetId: string) {
     // First get the spreadsheet info to get sheet IDs
-    const spreadsheetInfo = await this.getSpreadsheetInfo(spreadsheetId)
+    let spreadsheetInfo
+    try {
+      spreadsheetInfo = await this.getSpreadsheetInfo(spreadsheetId)
+    } catch (error) {
+      console.warn('Could not get spreadsheet info, skipping header initialization:', error)
+      return
+    }
+    
     const sheets = spreadsheetInfo.sheets || []
     
     const headers = {
@@ -200,11 +207,15 @@ export class GoogleSheetsService {
       })
     }
 
-    // Batch update all headers
-    await this.batchUpdateSheetData(spreadsheetId, requests)
-    
-    // Format headers with bold styling
-    await this.formatHeaders(spreadsheetId, sheets)
+    try {
+      // Batch update all headers
+      await this.batchUpdateSheetData(spreadsheetId, requests)
+      
+      // Format headers with bold styling
+      await this.formatHeaders(spreadsheetId, sheets)
+    } catch (error) {
+      console.warn('Could not initialize headers, continuing without formatting:', error)
+    }
   }
 
   // Format headers with bold styling and colors

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useSheetsStore } from '../store/sheets'
+import { useAuthStore } from '../store/auth'
 import { 
   PlusIcon, 
   EyeIcon, 

@@ -28,6 +28,9 @@ export default function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAu
         'width=500,height=600,scrollbars=yes,resizable=yes'
       )
 
+      if (!popup) {
+        throw new Error('Failed to open popup window. Please allow popups for this site.')
+      }
       // Listen for messages from the popup
       const messageListener = async (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return
@@ -39,7 +42,6 @@ export default function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAu
           try {
             const { code } = event.data
             const tokens = await googleAPIService.exchangeCodeForTokens(code)
-            const userInfo = await googleAPIService.getUserInfo(tokens.access_token)
 
             // Create spreadsheet for the user
             const { GoogleSheetsAPI } = await import('../lib/google-api')
@@ -47,6 +49,7 @@ export default function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAu
             
             let spreadsheetId
             try {
+              const userInfo = await googleAPIService.getUserInfo(tokens.access_token)
               spreadsheetId = await sheetsAPI.createUserSpreadsheet(userInfo.email)
             } catch (error) {
               console.error('Error creating spreadsheet:', error)

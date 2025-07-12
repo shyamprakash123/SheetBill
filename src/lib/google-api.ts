@@ -373,8 +373,10 @@ export class GoogleSheetsAPI {
   // Get sheet data
   async getSheetData(spreadsheetId: string, range: string) {
     try {
+      // Ensure the range is properly encoded
+      const encodedRange = encodeURIComponent(range)
       const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
         {
           headers: this.headers
         }
@@ -396,8 +398,9 @@ export class GoogleSheetsAPI {
   // Update sheet data
   async updateSheetData(spreadsheetId: string, range: string, values: any[][]) {
     try {
+      const encodedRange = encodeURIComponent(range)
       const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}?valueInputOption=RAW`,
         {
           method: 'PUT',
           headers: this.headers,
@@ -420,8 +423,9 @@ export class GoogleSheetsAPI {
   // Append data to sheet
   async appendToSheet(spreadsheetId: string, range: string, values: any[][]) {
     try {
+      const encodedRange = encodeURIComponent(range)
       const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=RAW`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
         {
           method: 'POST',
           headers: this.headers,

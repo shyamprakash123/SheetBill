@@ -17,6 +17,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import GoogleAuthModal from '../components/GoogleAuthModal'
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 
 export default function Dashboard() {
   const { profile } = useAuthStore()
@@ -34,7 +35,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     const initData = async () => {
-      if (!profile?.google_tokens || !profile?.google_sheet_id) {
+      // Check if Google account is connected
+      const isGoogleConnected = profile?.google_tokens?.access_token
+      
+      if (!isGoogleConnected) {
         setShowGoogleAuth(true)
         return
       }
@@ -45,7 +49,13 @@ export default function Dashboard() {
         setStats(invoiceStats)
       } catch (error) {
         console.error('Error initializing dashboard:', error)
-        setShowGoogleAuth(true)
+        // Only show auth modal if it's an authentication error
+        if (error.message?.includes('Google account') || error.message?.includes('access_token')) {
+          setShowGoogleAuth(true)
+        } else {
+          // For other errors, show a toast but don't force re-auth
+          toast.error('Some features may not work properly. Please check your connection.')
+        }
       }
     }
 
@@ -58,9 +68,9 @@ export default function Dashboard() {
       await initializeService()
       const invoiceStats = await getInvoiceStats()
       setStats(invoiceStats)
+      toast.success('Google account connected successfully!')
     } catch (error) {
       console.error('Error after Google auth:', error)
-      // Don't show the auth modal again, just show a warning
       toast.error('Connected to Google but had issues setting up spreadsheet. You can still use the app.')
     }
   }

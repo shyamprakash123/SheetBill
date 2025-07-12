@@ -116,12 +116,17 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       const service = new InvoiceService(accessToken, profile.google_sheet_id)
       set({ service })
       
-      // Fetch initial data
-      await Promise.all([
-        get().fetchInvoices(),
-        get().fetchCustomers(),
-        get().fetchProducts()
-      ])
+      // Fetch initial data with error handling
+      try {
+        await Promise.all([
+          get().fetchInvoices(),
+          get().fetchCustomers(),
+          get().fetchProducts()
+        ])
+      } catch (dataError) {
+        console.warn('Error fetching initial data:', dataError)
+        // Don't throw, service is still usable
+      }
     } catch (error) {
       console.error('Error initializing invoice service:', error)
       set({ error: error instanceof Error ? error.message : 'Failed to initialize service' })
