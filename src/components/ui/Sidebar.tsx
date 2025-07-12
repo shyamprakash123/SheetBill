@@ -14,7 +14,12 @@ import {
   Bars3Icon,
   XMarkIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  DocumentMinusIcon,
+  ClipboardDocumentListIcon,
+  ReceiptPercentIcon,
+  TruckIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../../store/auth'
 import { clsx } from 'clsx'
@@ -47,10 +52,28 @@ const navigation: NavigationItem[] = [
     description: 'Invoices and sales management'
   },
   { 
+    name: 'Credit Notes', 
+    href: '/app/credit-notes', 
+    icon: DocumentMinusIcon,
+    description: 'Credit notes and adjustments'
+  },
+  { 
     name: 'Purchases', 
     href: '/app/purchases', 
     icon: ShoppingCartIcon,
     description: 'Purchase orders and bills'
+  },
+  { 
+    name: 'Purchase Orders', 
+    href: '/app/purchase-orders', 
+    icon: ClipboardDocumentListIcon,
+    description: 'Manage purchase orders'
+  },
+  { 
+    name: 'Expenses', 
+    href: '/app/expenses', 
+    icon: ReceiptPercentIcon,
+    description: 'Track business expenses'
   },
   { 
     name: 'Quotations', 
@@ -63,6 +86,18 @@ const navigation: NavigationItem[] = [
     href: '/app/inventory', 
     icon: CubeIcon,
     description: 'Products and stock management'
+  },
+  { 
+    name: 'E-Way Bills', 
+    href: '/app/eway-bills', 
+    icon: TruckIcon,
+    description: 'Generate and manage E-Way Bills'
+  },
+  { 
+    name: 'Payments', 
+    href: '/app/payments', 
+    icon: BanknotesIcon,
+    description: 'Payment tracking and management'
   },
   { 
     name: 'Reports', 

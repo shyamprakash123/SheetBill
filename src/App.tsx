@@ -14,6 +14,11 @@ import Customers from './pages/Customers'
 import Vendors from './pages/Vendors'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import CreditNotes from './pages/CreditNotes'
+import PurchaseOrders from './pages/PurchaseOrders'
+import Expenses from './pages/Expenses'
+import EWayBills from './pages/EWayBills'
+import Payments from './pages/Payments'
 import GoogleAuthCallback from './pages/GoogleAuthCallback'
 import { useAuthStore } from './store/auth'
 import { useTheme } from './hooks/useTheme'
@@ -61,6 +66,11 @@ function App() {
               <Route path="reports" element={<Reports />} />
               <Route path="settings" element={<Settings />} />
               <Route path="settings/:tab" element={<Settings />} />
+              <Route path="credit-notes" element={<CreditNotes />} />
+              <Route path="purchase-orders" element={<PurchaseOrders />} />
+              <Route path="expenses" element={<Expenses />} />
+              <Route path="eway-bills" element={<EWayBills />} />
+              <Route path="payments" element={<Payments />} />
             </Route>
             {/* Legacy routes for backward compatibility */}
             <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
