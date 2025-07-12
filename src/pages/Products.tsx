@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { useSheetsStore } from '../store/sheets'
+import { useInvoiceStore } from '../store/invoice'
 import { PlusIcon, EyeIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
 export default function Products() {
-  const { products, fetchProducts, addProduct, setSpreadsheetId } = useSheetsStore()
+  const { products, fetchProducts, addProduct, setSpreadsheetId } = useInvoiceStore()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newProduct, setNewProduct] = useState({
     name: '',

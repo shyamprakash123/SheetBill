@@ -17,7 +17,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 
-import { useSheetsStore } from '../store/sheets'
+import { useInvoiceStore } from '../store/invoice'
 import { useAuthStore } from '../store/auth'
 
 export default function Purchases() {
@@ -34,7 +34,7 @@ export default function Purchases() {
   })
 
   const { profile } = useAuthStore()
-  const { setSpreadsheetId } = useSheetsStore()
+  const { setSpreadsheetId } = useInvoiceStore()
 
   useEffect(() => {
     const fetchPurchases = async () => {
