@@ -14,7 +14,7 @@ import {
 } from '@heroicons/react/24/outline'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import Modal from '../components/ui/Modal'
+import InvoiceFormModal from '../components/InvoiceFormModal'
 import { useInvoiceStore } from '../store/invoice'
 import toast from 'react-hot-toast'
 
@@ -346,25 +346,11 @@ export default function Sales() {
       </Card>
 
       {/* Invoice Modal */}
-      <Modal
+      <InvoiceFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingInvoice ? 'Edit Invoice' : 'Create New Invoice'}
-      >
-        <div className="p-6">
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Invoice form will be implemented here.
-          </p>
-          <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={handleCloseModal}>
-              Cancel
-            </Button>
-            <Button onClick={handleCloseModal}>
-              Save Invoice
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        invoice={editingInvoice}
+      />
     </div>
   )
 }
