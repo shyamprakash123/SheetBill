@@ -113,27 +113,27 @@ export class InvoiceService {
         return []
       }
       
-    const [headers, ...rows] = data
+      const [headers, ...rows] = data
       if (!rows || rows.length === 0) {
         return []
       }
 
       return rows.map(row => ({
-      id: row[0] || '',
-      customerId: row[1] || '',
-      customerName: row[2] || '',
-      date: row[3] || '',
-      dueDate: row[4] || '',
-      subtotal: parseFloat(row[5]) || 0,
-      taxAmount: parseFloat(row[6]) || 0,
-      total: parseFloat(row[7]) || 0,
-      status: (row[8] as Invoice['status']) || 'Draft',
-      notes: row[9] || '',
-      items: row[10] ? JSON.parse(row[10]) : [],
-      paymentTerms: row[11] || '',
-      createdAt: row[12] || '',
-      updatedAt: row[13] || '',
-      pdfUrl: row[14] || ''
+        id: row[0] || '',
+        customerId: row[1] || '',
+        customerName: row[2] || '',
+        date: row[3] || '',
+        dueDate: row[4] || '',
+        subtotal: parseFloat(row[5]) || 0,
+        taxAmount: parseFloat(row[6]) || 0,
+        total: parseFloat(row[7]) || 0,
+        status: (row[8] as Invoice['status']) || 'Draft',
+        notes: row[9] || '',
+        items: row[10] ? JSON.parse(row[10]) : [],
+        paymentTerms: row[11] || '',
+        createdAt: row[12] || '',
+        updatedAt: row[13] || '',
+        pdfUrl: row[14] || ''
       })).filter(invoice => invoice.id) // Filter out empty rows
     } catch (error) {
       console.error('Error getting invoices:', error)
@@ -233,21 +233,28 @@ export class InvoiceService {
         return []
       }
       
-    const [headers, ...rows] = data
+      const [headers, ...rows] = data
+      if (!rows || rows.length === 0) {
+        return []
+      }
 
-    return rows.map(row => ({
-      id: row[0] || '',
-      name: row[1] || '',
-      email: row[2] || '',
-      phone: row[3] || '',
-      address: row[4] || '',
-      city: row[5] || '',
-      state: row[6] || '',
-      country: row[7] || 'India',
-      gstin: row[8] || '',
-      createdAt: row[9] || '',
-      status: (row[10] as Customer['status']) || 'Active'
-    }))
+      return rows.map(row => ({
+        id: row[0] || '',
+        name: row[1] || '',
+        email: row[2] || '',
+        phone: row[3] || '',
+        address: row[4] || '',
+        city: row[5] || '',
+        state: row[6] || '',
+        country: row[7] || 'India',
+        gstin: row[8] || '',
+        createdAt: row[9] || '',
+        status: (row[10] as Customer['status']) || 'Active'
+      })).filter(customer => customer.id) // Filter out empty rows
+    } catch (error) {
+      console.error('Error getting customers:', error)
+      return [] // Return empty array instead of throwing
+    }
   }
 
   async updateCustomer(customerId: string, updates: Partial<Customer>): Promise<Customer> {
@@ -268,11 +275,8 @@ export class InvoiceService {
       updatedCustomer.address,
       updatedCustomer.city,
       updatedCustomer.state,
-      if (!rows || rows.length === 0) {
-        return []
-      }
       updatedCustomer.country,
-      return rows.map(row => ({
+      updatedCustomer.gstin || '',
       updatedCustomer.createdAt,
       updatedCustomer.status
     ]
@@ -284,11 +288,7 @@ export class InvoiceService {
       [row]
     )
 
-      })).filter(customer => customer.id) // Filter out empty rows
-    } catch (error) {
-      console.error('Error getting customers:', error)
-      return [] // Return empty array instead of throwing
-    }
+    return updatedCustomer
   }
 
   // Product CRUD operations
@@ -327,25 +327,25 @@ export class InvoiceService {
         return []
       }
       
-    const [headers, ...rows] = data
+      const [headers, ...rows] = data
       if (!rows || rows.length === 0) {
         return []
       }
 
       return rows.map(row => ({
-      id: row[0] || '',
-      name: row[1] || '',
-      description: row[2] || '',
-      price: parseFloat(row[3]) || 0,
-      stock: isNaN(parseFloat(row[4])) ? row[4] : parseFloat(row[4]),
-      hsnCode: row[5] || '',
-      taxRate: parseFloat(row[6]) || 18,
-      category: row[7] || '',
-      unit: row[8] || 'pcs',
-      imageUrl: row[9] || '',
-      createdAt: row[10] || '',
-      updatedAt: row[11] || '',
-      status: (row[12] as Product['status']) || 'Active'
+        id: row[0] || '',
+        name: row[1] || '',
+        description: row[2] || '',
+        price: parseFloat(row[3]) || 0,
+        stock: isNaN(parseFloat(row[4])) ? row[4] : parseFloat(row[4]),
+        hsnCode: row[5] || '',
+        taxRate: parseFloat(row[6]) || 18,
+        category: row[7] || '',
+        unit: row[8] || 'pcs',
+        imageUrl: row[9] || '',
+        createdAt: row[10] || '',
+        updatedAt: row[11] || '',
+        status: (row[12] as Product['status']) || 'Active'
       })).filter(product => product.id) // Filter out empty rows
     } catch (error) {
       console.error('Error getting products:', error)
