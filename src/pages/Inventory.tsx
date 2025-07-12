@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { useSheetsStore } from '../store/sheets'
+import { useInvoiceStore } from '../store/invoice'
 import { useAuthStore } from '../store/auth'
 import { 
   PlusIcon, 
@@ -17,12 +17,21 @@ import {
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
+import GoogleAuthModal from '../components/GoogleAuthModal'
 import toast from 'react-hot-toast'
 
 export default function Inventory() {
-  const { products, fetchProducts, addProduct, setSpreadsheetId, loading } = useSheetsStore()
+  const { 
+    products, 
+    fetchProducts, 
+    createProduct, 
+    updateProduct,
+    initializeService,
+    loading 
+  } = useInvoiceStore()
   const { profile } = useAuthStore()
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showGoogleAuth, setShowGoogleAuth] = useState(false)
   const [filterCategory, setFilterCategory] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [newProduct, setNewProduct] = useState({
@@ -31,18 +40,26 @@ export default function Inventory() {
     price: '',
     stock: '',
     hsnCode: '',
-    category: ''
+    category: '',
+    unit: 'pcs',
+    taxRate: '18'
   })
 
   useEffect(() => {
     const initData = async () => {
-      if (!profile?.google_sheet_id) return
+      if (!profile?.google_tokens) {
+        setShowGoogleAuth(true)
+        return
+      }
       
       try {
-        setSpreadsheetId(profile.google_sheet_id)
+        await initializeService()
         await fetchProducts()
       } catch (error) {
         console.error('Error fetching products:', error)
+        if (error.message?.includes('Google account')) {
+          setShowGoogleAuth(true)
+        }
       }
     }
     initData()
@@ -51,25 +68,65 @@ export default function Inventory() {
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Check if Google account is connected
+    if (!profile?.google_tokens) {
+      setShowGoogleAuth(true)
+      return
+    }
+
+    // Validation
+    if (!newProduct.name.trim()) {
+      toast.error('Product name is required')
+      return
+    }
+
+    if (!newProduct.price || parseFloat(newProduct.price) <= 0) {
+      toast.error('Please enter a valid price')
+      return
+    }
+
     try {
-      await addProduct({
+      await createProduct({
         name: newProduct.name,
         description: newProduct.description,
         price: parseFloat(newProduct.price),
         stock: newProduct.stock,
         hsnCode: newProduct.hsnCode,
-        taxRate: '18%',
-        category: newProduct.category
+        taxRate: parseFloat(newProduct.taxRate),
+        category: newProduct.category,
+        unit: newProduct.unit,
+        status: 'Active'
       })
 
-      setNewProduct({ name: '', description: '', price: '', stock: '', hsnCode: '', category: '' })
+      setNewProduct({ 
+        name: '', 
+        description: '', 
+        price: '', 
+        stock: '', 
+        hsnCode: '', 
+        category: '',
+        unit: 'pcs',
+        taxRate: '18'
+      })
       setShowCreateModal(false)
       toast.success('Product added successfully!')
     } catch (error) {
+      console.error('Error adding product:', error)
       toast.error('Failed to add product')
     }
   }
 
+  const handleGoogleAuthSuccess = async () => {
+    setShowGoogleAuth(false)
+    try {
+      await initializeService()
+      await fetchProducts()
+      toast.success('Google account connected! You can now add products.')
+    } catch (error) {
+      console.error('Error after Google auth:', error)
+      toast.error('Connected to Google but had issues setting up spreadsheet.')
+    }
+  }
   const filteredProducts = products.filter(product => {
     const matchesCategory = filterCategory === 'all' || product.category.toLowerCase() === filterCategory.toLowerCase()
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -136,7 +193,8 @@ export default function Inventory() {
   }
 
   return (
-    <div className="space-y-8">
+    <>
+      <div className="space-y-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -216,6 +274,8 @@ export default function Inventory() {
               <option value="services">Services</option>
               <option value="software">Software</option>
               <option value="hardware">Hardware</option>
+              <option value="consulting">Consulting</option>
+              <option value="other">Other</option>
             </select>
           </div>
           
@@ -254,6 +314,9 @@ export default function Inventory() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   HSN Code
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Tax Rate
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Status
@@ -302,6 +365,9 @@ export default function Inventory() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {product.hsnCode}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {product.taxRate}%
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${stockStatus.color}`}>
@@ -392,6 +458,7 @@ export default function Inventory() {
                 type="number"
                 required
                 step="0.01"
+                min="0"
                 value={newProduct.price}
                 onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -413,7 +480,7 @@ export default function Inventory() {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 HSN Code
@@ -440,9 +507,48 @@ export default function Inventory() {
                 <option value="Services">Services</option>
                 <option value="Software">Software</option>
                 <option value="Hardware">Hardware</option>
+                <option value="Consulting">Consulting</option>
                 <option value="Other">Other</option>
               </select>
             </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tax Rate (%)
+              </label>
+              <select
+                value={newProduct.taxRate}
+                onChange={(e) => setNewProduct({ ...newProduct, taxRate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="0">0% (Exempt)</option>
+                <option value="5">5% (Essential goods)</option>
+                <option value="12">12% (Standard rate)</option>
+                <option value="18">18% (Standard rate)</option>
+                <option value="28">28% (Luxury goods)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Unit
+            </label>
+            <select
+              value={newProduct.unit}
+              onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="pcs">Pieces (pcs)</option>
+              <option value="kg">Kilograms (kg)</option>
+              <option value="ltr">Liters (ltr)</option>
+              <option value="mtr">Meters (mtr)</option>
+              <option value="hrs">Hours (hrs)</option>
+              <option value="days">Days</option>
+              <option value="months">Months</option>
+              <option value="years">Years</option>
+              <option value="service">Service</option>
+            </select>
           </div>
           
           <div className="flex justify-end space-x-3 pt-4">
@@ -450,15 +556,28 @@ export default function Inventory() {
               type="button"
               variant="outline"
               onClick={() => setShowCreateModal(false)}
+              disabled={loading}
             >
               Cancel
             </Button>
-            <Button type="submit">
+            <Button 
+              type="submit"
+              loading={loading}
+              disabled={!newProduct.name.trim() || !newProduct.price}
+            >
               Add Product
             </Button>
           </div>
         </form>
       </Modal>
-    </div>
+      </div>
+
+      {/* Google Auth Modal */}
+      <GoogleAuthModal
+        isOpen={showGoogleAuth}
+        onClose={() => setShowGoogleAuth(false)}
+        onSuccess={handleGoogleAuthSuccess}
+      />
+    </>
   )
 }
