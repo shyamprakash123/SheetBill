@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { GoogleSheetsService } from '../lib/google-sheets'
+import { GoogleSheetsService, MockGoogleSheetsService } from '../lib/google-sheets'
 
 interface Invoice {
   id: string
