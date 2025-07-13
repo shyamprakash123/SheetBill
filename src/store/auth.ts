@@ -121,11 +121,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   hasGoogleTokens: async () => {
-    return await supabaseGoogleAuth.hasValidGoogleTokens()
+    try {
+      const tokens = await supabaseGoogleAuth.getGoogleTokens()
+      return tokens !== null && tokens.access_token !== ''
+    } catch (error) {
+      console.warn('Error checking Google tokens:', error)
+      return false
+    }
   },
 
   getGoogleTokens: async () => {
-    return await supabaseGoogleAuth.getGoogleTokens()
+    try {
+      return await supabaseGoogleAuth.getGoogleTokens()
+    } catch (error) {
+      console.warn('Error getting Google tokens:', error)
+      return null
+    }
   },
 }))
 

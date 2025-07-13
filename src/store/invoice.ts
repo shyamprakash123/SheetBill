@@ -52,10 +52,10 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   error: null,
 
   initializeService: async () => {
-    const { profile, hasGoogleTokens } = useAuthStore.getState()
+    const { profile, getGoogleTokens } = useAuthStore.getState()
     
-    const hasTokens = await hasGoogleTokens()
-    if (!hasTokens) {
+    const tokens = await getGoogleTokens()
+    if (!tokens || !tokens.access_token) {
       throw new Error('Google account not connected')
     }
     

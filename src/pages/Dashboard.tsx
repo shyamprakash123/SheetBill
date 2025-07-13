@@ -36,10 +36,10 @@ export default function Dashboard() {
   useEffect(() => {
     const initData = async () => {
       // Check if Google account is connected
-      const { hasGoogleTokens } = useAuthStore.getState()
-      const isGoogleConnected = await hasGoogleTokens()
+      const { getGoogleTokens } = useAuthStore.getState()
+      const tokens = await getGoogleTokens()
       
-      if (!isGoogleConnected) {
+      if (!tokens || !tokens.access_token) {
         setShowGoogleAuth(true)
         return
       }
