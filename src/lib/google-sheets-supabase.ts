@@ -1,3 +1,4 @@
+import { useAuthStore } from '../store/auth'
 import { supabaseGoogleAuth } from './supabase-google-auth'
 
 export interface SheetData {

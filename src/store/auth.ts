@@ -83,21 +83,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
 
-      if (data) {
-        const googleTokens = await supabaseGoogleAuth.getGoogleTokens();
-        if (googleTokens) {
-          const updatedProfile = {
-            ...data,
-            google_tokens: googleTokens,
-          };
-          set({ profile: updatedProfile });
+      console.log("Profile",data)
+
+      set({ profile: data });
+
+      // if (data) {
+      //   const googleTokens = await supabaseGoogleAuth.getGoogleTokens();
+      //   if (googleTokens) {
+      //     const updatedProfile = {
+      //       ...data,
+      //       google_tokens: googleTokens,
+      //     };
+      //     set({ profile: updatedProfile });
           
-          // Persist the Google tokens in the database
-          await get().updateProfile({ google_tokens: googleTokens });
-        } else {
-          set({ profile: data });
-        }
-      }
+      //     // Persist the Google tokens in the database
+      //     await get().updateProfile({ google_tokens: googleTokens });
+      //   } else {
+      //     set({ profile: data });
+      //   }
+      // }
     } catch (error) {
       console.error('Error in fetchProfile:', error)
     }

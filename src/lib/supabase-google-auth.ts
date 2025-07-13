@@ -1,3 +1,4 @@
+import { useAuthStore } from '../store/auth'
 import { supabase } from './supabase'
 import { Provider } from '@supabase/supabase-js'
 
