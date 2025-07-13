@@ -83,20 +83,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
 
-      // If profile exists, update it with current Google tokens
       if (data) {
-        const googleTokens = await supabaseGoogleAuth.getGoogleTokens()
+        const googleTokens = await supabaseGoogleAuth.getGoogleTokens();
         if (googleTokens) {
           const updatedProfile = {
             ...data,
-            google_tokens: googleTokens
-          }
-          set({ profile: updatedProfile })
+            google_tokens: googleTokens,
+          };
+          set({ profile: updatedProfile });
           
-          // Update the profile in the database with Google tokens
-          await get().updateProfile({ google_tokens: googleTokens })
+          // Persist the Google tokens in the database
+          await get().updateProfile({ google_tokens: googleTokens });
         } else {
-          set({ profile: data })
+          set({ profile: data });
         }
       }
     } catch (error) {
