@@ -1,189 +1,196 @@
-import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { useInvoiceStore } from '../store/invoice'
-import { useAuthStore } from '../store/auth'
-import { 
-  ChartBarIcon, 
-  DocumentArrowDownIcon, 
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useInvoiceStore } from "../store/invoice";
+import { useAuthStore } from "../store/auth";
+import {
+  ChartBarIcon,
+  DocumentArrowDownIcon,
   CalendarIcon,
   CurrencyRupeeIcon,
   DocumentTextIcon,
   UserGroupIcon,
   BuildingOfficeIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline'
-import Card from '../components/ui/Card'
-import Button from '../components/ui/Button'
-import GoogleAuthModal from '../components/GoogleAuthModal'
-import toast from 'react-hot-toast'
+  ExclamationTriangleIcon,
+  CubeIcon,
+} from "@heroicons/react/24/outline";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import GoogleAuthModal from "../components/GoogleAuthModal";
+import toast from "react-hot-toast";
 
 export default function Reports() {
-  const { 
-    invoices, 
-    products, 
-    customers, 
+  const {
+    invoices,
+    products,
+    customers,
     initializeService,
-    fetchInvoices, 
-    fetchProducts, 
+    fetchInvoices,
+    fetchProducts,
     fetchCustomers,
     getInvoiceStats,
-    loading 
-  } = useInvoiceStore()
-  const { profile } = useAuthStore()
-  const [dateRange, setDateRange] = useState('30')
-  const [stats, setStats] = useState(null)
-  const [showGoogleAuth, setShowGoogleAuth] = useState(false)
+    loading,
+  } = useInvoiceStore();
+  const { profile } = useAuthStore();
+  const [dateRange, setDateRange] = useState("30");
+  const [stats, setStats] = useState(null);
+  const [showGoogleAuth, setShowGoogleAuth] = useState(false);
 
   useEffect(() => {
     const initData = async () => {
       if (!profile?.google_tokens) {
-        setShowGoogleAuth(true)
-        return
+        setShowGoogleAuth(true);
+        return;
       }
-      
+
       try {
-        await initializeService()
-        await Promise.all([
-          fetchInvoices(),
-          fetchProducts(),
-          fetchCustomers()
-        ])
-        const invoiceStats = await getInvoiceStats()
-        setStats(invoiceStats)
+        await initializeService();
+        await Promise.all([fetchInvoices(), fetchProducts(), fetchCustomers()]);
+        const invoiceStats = await getInvoiceStats();
+        setStats(invoiceStats);
       } catch (error) {
-        console.error('Error fetching reports data:', error)
-        if (error.message?.includes('Google account')) {
-          setShowGoogleAuth(true)
+        console.error("Error fetching reports data:", error);
+        if (error.message?.includes("Google account")) {
+          setShowGoogleAuth(true);
         } else {
-          toast.error('Error loading reports data')
+          toast.error("Error loading reports data");
         }
       }
-    }
-    initData()
-  }, [profile])
+    };
+    initData();
+  }, [profile]);
 
   const handleGoogleAuthSuccess = async () => {
-    setShowGoogleAuth(false)
+    setShowGoogleAuth(false);
     try {
-      await initializeService()
-      await Promise.all([
-        fetchInvoices(),
-        fetchProducts(),
-        fetchCustomers()
-      ])
-      const invoiceStats = await getInvoiceStats()
-      setStats(invoiceStats)
-      toast.success('Google account connected! Reports data loaded.')
+      await initializeService();
+      await Promise.all([fetchInvoices(), fetchProducts(), fetchCustomers()]);
+      const invoiceStats = await getInvoiceStats();
+      setStats(invoiceStats);
+      toast.success("Google account connected! Reports data loaded.");
     } catch (error) {
-      console.error('Error after Google auth:', error)
-      toast.error('Connected to Google but had issues loading data.')
+      console.error("Error after Google auth:", error);
+      toast.error("Connected to Google but had issues loading data.");
     }
-  }
+  };
 
   // Calculate metrics from real data
-  const totalRevenue = stats?.totalRevenue || 0
-  const totalPaid = stats?.paidAmount || 0
-  const totalPending = stats?.pendingAmount || 0
-  const overdueAmount = stats?.overdueAmount || 0
-  const paidInvoices = invoices.filter(inv => inv.status === 'Paid')
-  const pendingInvoices = invoices.filter(inv => inv.status === 'Pending' || inv.status === 'Sent')
-  const overdueInvoices = invoices.filter(inv => inv.status === 'Overdue')
+  const totalRevenue = stats?.totalRevenue || 0;
+  const totalPaid = stats?.paidAmount || 0;
+  const totalPending = stats?.pendingAmount || 0;
+  const overdueAmount = stats?.overdueAmount || 0;
+  const paidInvoices = invoices.filter((inv) => inv.status === "Paid");
+  const pendingInvoices = invoices.filter(
+    (inv) => inv.status === "Pending" || inv.status === "Sent"
+  );
+  const overdueInvoices = invoices.filter((inv) => inv.status === "Overdue");
 
-  const gstCollected = invoices.reduce((sum, inv) => sum + (inv.taxAmount || 0), 0)
-  const totalProducts = products.length
-  const totalCustomers = customers.length
+  const gstCollected = invoices.reduce(
+    (sum, inv) => sum + (inv.taxAmount || 0),
+    0
+  );
+  const totalProducts = products.length;
+  const totalCustomers = customers.length;
 
   const reportCards = [
     {
-      title: 'Total Revenue',
+      title: "Total Revenue",
       value: `₹${totalRevenue.toLocaleString()}`,
       icon: CurrencyRupeeIcon,
-      color: 'bg-blue-500',
+      color: "bg-blue-500",
       change: `${invoices.length} invoices`,
     },
     {
-      title: 'Paid Amount',
+      title: "Paid Amount",
       value: `₹${totalPaid.toLocaleString()}`,
       icon: DocumentTextIcon,
-      color: 'bg-green-500',
+      color: "bg-green-500",
       change: `${paidInvoices.length} paid`,
     },
     {
-      title: 'Pending Amount',
+      title: "Pending Amount",
       value: `₹${totalPending.toLocaleString()}`,
       icon: CalendarIcon,
-      color: 'bg-yellow-500',
+      color: "bg-yellow-500",
       change: `${pendingInvoices.length} pending`,
     },
     {
-      title: 'GST Collected',
+      title: "GST Collected",
       value: `₹${gstCollected.toLocaleString()}`,
       icon: ChartBarIcon,
-      color: 'bg-purple-500',
-      change: 'This period',
+      color: "bg-purple-500",
+      change: "This period",
     },
-  ]
+  ];
 
   const businessMetrics = [
     {
-      title: 'Total Products',
+      title: "Total Products",
       value: totalProducts.toString(),
       icon: CubeIcon,
-      color: 'bg-indigo-500',
+      color: "bg-indigo-500",
     },
     {
-      title: 'Total Customers',
+      title: "Total Customers",
       value: totalCustomers.toString(),
       icon: UserGroupIcon,
-      color: 'bg-pink-500',
+      color: "bg-pink-500",
     },
     {
-      title: 'Overdue Amount',
+      title: "Overdue Amount",
       value: `₹${overdueAmount.toLocaleString()}`,
       icon: ExclamationTriangleIcon,
-      color: 'bg-red-500',
+      color: "bg-red-500",
     },
     {
-      title: 'Collection Rate',
-      value: `${invoices.length > 0 ? Math.round((paidInvoices.length / invoices.length) * 100) : 0}%`,
+      title: "Collection Rate",
+      value: `${
+        invoices.length > 0
+          ? Math.round((paidInvoices.length / invoices.length) * 100)
+          : 0
+      }%`,
       icon: ChartBarIcon,
-      color: 'bg-emerald-500',
+      color: "bg-emerald-500",
     },
-  ]
+  ];
 
   // Generate GST report data from real invoices
   const generateGSTReport = () => {
-    const monthlyData = {}
-    
-    invoices.forEach(invoice => {
-      const date = new Date(invoice.date)
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      const monthName = date.toLocaleDateString('en-IN', { year: 'numeric', month: 'short' })
-      
+    const monthlyData = {};
+
+    invoices.forEach((invoice) => {
+      const date = new Date(invoice.date);
+      const monthKey = `${date.getFullYear()}-${String(
+        date.getMonth() + 1
+      ).padStart(2, "0")}`;
+      const monthName = date.toLocaleDateString("en-IN", {
+        year: "numeric",
+        month: "short",
+      });
+
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = {
           period: monthName,
           sales: 0,
           gst: 0,
-          filed: Math.random() > 0.3 // Random filing status for demo
-        }
+          filed: Math.random() > 0.3, // Random filing status for demo
+        };
       }
-      
-      monthlyData[monthKey].sales += invoice.subtotal || 0
-      monthlyData[monthKey].gst += invoice.taxAmount || 0
-    })
-    
-    return Object.values(monthlyData).slice(-6) // Last 6 months
-  }
 
-  const gstReportData = generateGSTReport()
+      monthlyData[monthKey].sales += invoice.subtotal || 0;
+      monthlyData[monthKey].gst += invoice.taxAmount || 0;
+    });
+
+    return Object.values(monthlyData).slice(-6); // Last 6 months
+  };
+
+  const gstReportData = generateGSTReport();
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -196,7 +203,9 @@ export default function Reports() {
           className="flex items-center justify-between"
         >
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reports & Analytics</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Reports & Analytics
+            </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               Track your business performance and GST compliance
             </p>
@@ -282,11 +291,15 @@ export default function Reports() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Revenue Chart */}
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Trend</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Revenue Trend
+            </h3>
             <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
               <div className="text-center">
                 <ChartBarIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 dark:text-gray-400">Revenue chart visualization</p>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Revenue chart visualization
+                </p>
                 <p className="text-sm text-gray-400 dark:text-gray-500">
                   Total Revenue: ₹{totalRevenue.toLocaleString()}
                 </p>
@@ -296,44 +309,86 @@ export default function Reports() {
 
           {/* Invoice Status */}
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Invoice Status</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Invoice Status
+            </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Paid Invoices</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Paid Invoices
+                </span>
                 <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                  {paidInvoices.length} ({invoices.length > 0 ? Math.round((paidInvoices.length / invoices.length) * 100) : 0}%)
+                  {paidInvoices.length} (
+                  {invoices.length > 0
+                    ? Math.round((paidInvoices.length / invoices.length) * 100)
+                    : 0}
+                  %)
                 </span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div 
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${invoices.length > 0 ? (paidInvoices.length / invoices.length) * 100 : 0}%` }}
-                ></div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Pending Invoices</span>
-                <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
-                  {pendingInvoices.length} ({invoices.length > 0 ? Math.round((pendingInvoices.length / invoices.length) * 100) : 0}%)
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div 
-                  className="bg-yellow-500 h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${invoices.length > 0 ? (pendingInvoices.length / invoices.length) * 100 : 0}%` }}
+                <div
+                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${
+                      invoices.length > 0
+                        ? (paidInvoices.length / invoices.length) * 100
+                        : 0
+                    }%`,
+                  }}
                 ></div>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Overdue Invoices</span>
-                <span className="text-sm font-medium text-red-600 dark:text-red-400">
-                  {overdueInvoices.length} ({invoices.length > 0 ? Math.round((overdueInvoices.length / invoices.length) * 100) : 0}%)
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Pending Invoices
+                </span>
+                <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
+                  {pendingInvoices.length} (
+                  {invoices.length > 0
+                    ? Math.round(
+                        (pendingInvoices.length / invoices.length) * 100
+                      )
+                    : 0}
+                  %)
                 </span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div 
-                  className="bg-red-500 h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${invoices.length > 0 ? (overdueInvoices.length / invoices.length) * 100 : 0}%` }}
+                <div
+                  className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${
+                      invoices.length > 0
+                        ? (pendingInvoices.length / invoices.length) * 100
+                        : 0
+                    }%`,
+                  }}
+                ></div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Overdue Invoices
+                </span>
+                <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                  {overdueInvoices.length} (
+                  {invoices.length > 0
+                    ? Math.round(
+                        (overdueInvoices.length / invoices.length) * 100
+                      )
+                    : 0}
+                  %)
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-red-500 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${
+                      invoices.length > 0
+                        ? (overdueInvoices.length / invoices.length) * 100
+                        : 0
+                    }%`,
+                  }}
                 ></div>
               </div>
             </div>
@@ -343,7 +398,9 @@ export default function Reports() {
         {/* GST Filing Report */}
         <Card padding="none">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">GST Filing Status</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              GST Filing Status
+            </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -369,7 +426,10 @@ export default function Reports() {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {gstReportData.length > 0 ? (
                   gstReportData.map((row) => (
-                    <tr key={row.period} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <tr
+                      key={row.period}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         {row.period}
                       </td>
@@ -380,12 +440,14 @@ export default function Reports() {
                         ₹{row.gst.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          row.filed 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                        }`}>
-                          {row.filed ? 'Filed' : 'Pending'}
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            row.filed
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                          }`}
+                        >
+                          {row.filed ? "Filed" : "Pending"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -399,8 +461,12 @@ export default function Reports() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                      No GST data available. Create some invoices to see GST reports.
+                    <td
+                      colSpan={5}
+                      className="px-6 py-8 text-center text-gray-500 dark:text-gray-400"
+                    >
+                      No GST data available. Create some invoices to see GST
+                      reports.
                     </td>
                   </tr>
                 )}
@@ -411,17 +477,28 @@ export default function Reports() {
 
         {/* Export Options */}
         <Card>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Export Options
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Button variant="outline" className="flex items-center justify-center">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center"
+            >
               <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
               Sales Report (PDF)
             </Button>
-            <Button variant="outline" className="flex items-center justify-center">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center"
+            >
               <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
               GST Report (Excel)
             </Button>
-            <Button variant="outline" className="flex items-center justify-center">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center"
+            >
               <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
               Tally Export
             </Button>
@@ -436,5 +513,5 @@ export default function Reports() {
         onSuccess={handleGoogleAuthSuccess}
       />
     </>
-  )
+  );
 }
