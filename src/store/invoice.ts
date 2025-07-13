@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { InvoiceService, Invoice, Customer, Product } from '../lib/invoice-service'
-import { googleAPIService } from '../lib/google-api'
+import { googleSheetsSupabaseService } from '../lib/google-sheets-supabase'
+import { supabaseGoogleAuth } from '../lib/supabase-google-auth'
 import { useAuthStore } from './auth'
 
 interface InvoiceState {
@@ -51,49 +52,17 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   error: null,
 
   initializeService: async () => {
-    const { profile } = useAuthStore.getState()
+    const { profile, hasGoogleTokens } = useAuthStore.getState()
     
-    if (!profile?.google_tokens) {
+    const hasTokens = await hasGoogleTokens()
+    if (!hasTokens) {
       throw new Error('Google account not connected')
     }
-    console.log("google id",profile.google_sheet_id);
+    
     // If no spreadsheet ID, create one
     if (!profile.google_sheet_id) {
       try {
-        const accessToken = await googleAPIService.getValidAccessToken(profile.google_tokens)
-        const { GoogleSheetsAPI } = await import('../lib/google-api')
-        const sheetsAPI = new GoogleSheetsAPI(accessToken)
-        
-        let spreadsheetId
-        try {
-          spreadsheetId = await sheetsAPI.createUserSpreadsheet(profile.email)
-        } catch (error) {
-          console.error('Error creating spreadsheet with headers:', error)
-          // Try creating a basic spreadsheet without formatting
-          const basicSpreadsheet = {
-            properties: {
-              title: `SheetBill - ${profile.email}`,
-              locale: 'en_US',
-              timeZone: 'Asia/Kolkata'
-            }
-          }
-          
-          const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(basicSpreadsheet)
-          })
-          
-          if (!response.ok) {
-            throw new Error('Failed to create basic spreadsheet')
-          }
-          
-          const result = await response.json()
-          spreadsheetId = result.spreadsheetId
-        }
+        const spreadsheetId = await googleSheetsSupabaseService.createUserSpreadsheet(profile.email)
         
         // Update profile with new spreadsheet ID
         const { updateProfile } = useAuthStore.getState()
@@ -109,11 +78,8 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     }
 
     try {
-      // Get valid access token
-      const accessToken = await googleAPIService.getValidAccessToken(profile.google_tokens)
-      
       // Create service instance
-      const service = new InvoiceService(accessToken, profile.google_sheet_id)
+      const service = new InvoiceService('', profile.google_sheet_id) // Access token handled by supabase service
       set({ service })
       
       // Fetch initial data with error handling

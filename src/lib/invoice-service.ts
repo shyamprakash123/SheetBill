@@ -1,5 +1,5 @@
 // Invoice management service with Google Sheets backend
-import { GoogleSheetsAPI } from './google-api'
+import { googleSheetsSupabaseService } from './google-sheets-supabase'
 import { format } from 'date-fns'
 
 export interface InvoiceItem {
@@ -67,11 +67,11 @@ export interface Product {
 }
 
 export class InvoiceService {
-  private sheetsAPI: GoogleSheetsAPI
+  private sheetsService: typeof googleSheetsSupabaseService
   private spreadsheetId: string
 
   constructor(accessToken: string, spreadsheetId: string) {
-    this.sheetsAPI = new GoogleSheetsAPI(accessToken)
+    this.sheetsService = googleSheetsSupabaseService
     this.spreadsheetId = spreadsheetId
   }
 
@@ -102,13 +102,13 @@ export class InvoiceService {
       invoice.pdfUrl || ''
     ]
 
-    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Invoices!A1', [row])
+    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Invoices!A1', [row])
     return invoice
   }
 
   async getInvoices(): Promise<Invoice[]> {
     try {
-      const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Invoices!A:M')
+      const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Invoices!A:M')
       if (!data || data.length === 0) {
         return []
       }
@@ -179,7 +179,7 @@ export class InvoiceService {
     ]
 
     const rowNumber = invoiceIndex + 2 // +1 for header, +1 for 1-based indexing
-    await this.sheetsAPI.updateSheetData(
+    await this.sheetsService.updateSheetData(
       this.spreadsheetId, 
       `Invoices!A${rowNumber}:O${rowNumber}`, 
       [row]
@@ -222,13 +222,13 @@ export class InvoiceService {
       customer.status
     ]
 
-    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Customers!A1', [row])
+    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Customers!A1', [row])
     return customer
   }
 
   async getCustomers(): Promise<Customer[]> {
     try {
-      const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Customers!A:K')
+      const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Customers!A:K')
       if (!data || data.length === 0) {
         return []
       }
@@ -282,7 +282,7 @@ export class InvoiceService {
     ]
 
     const rowNumber = customerIndex + 2
-    await this.sheetsAPI.updateSheetData(
+    await this.sheetsService.updateSheetData(
       this.spreadsheetId, 
       `Customers!A${rowNumber}:K${rowNumber}`, 
       [row]
@@ -316,13 +316,13 @@ export class InvoiceService {
       product.status
     ]
 
-    await this.sheetsAPI.appendToSheet(this.spreadsheetId, 'Products!A1', [row])
+    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Products!A1', [row])
     return product
   }
 
   async getProducts(): Promise<Product[]> {
   try {
-    const data = await this.sheetsAPI.getSheetData(this.spreadsheetId, 'Products!A:M')
+    const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Products!A:M')
     if (!data || data.length === 0) return []
 
     // const [headers, ...rows] = data
@@ -386,7 +386,7 @@ export class InvoiceService {
     ]
 
     const rowNumber = productIndex + 2
-    await this.sheetsAPI.updateSheetData(
+    await this.sheetsService.updateSheetData(
       this.spreadsheetId, 
       `Products!A${rowNumber}:M${rowNumber}`, 
       [row]

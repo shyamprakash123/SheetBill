@@ -36,7 +36,8 @@ export default function Dashboard() {
   useEffect(() => {
     const initData = async () => {
       // Check if Google account is connected
-      const isGoogleConnected = profile?.google_tokens?.access_token
+      const { hasGoogleTokens } = useAuthStore.getState()
+      const isGoogleConnected = await hasGoogleTokens()
       
       if (!isGoogleConnected) {
         setShowGoogleAuth(true)
@@ -50,7 +51,7 @@ export default function Dashboard() {
       } catch (error) {
         console.error('Error initializing dashboard:', error)
         // Only show auth modal if it's an authentication error
-        if (error.message?.includes('Google account') || error.message?.includes('access_token')) {
+        if (error.message?.includes('Google account')) {
           setShowGoogleAuth(true)
         } else {
           // For other errors, show a toast but don't force re-auth

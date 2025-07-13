@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase, type UserProfile } from '../lib/supabase'
 import { User } from '@supabase/supabase-js'
+import { supabaseGoogleAuth } from '../lib/supabase-google-auth'
 
 interface AuthState {
   user: User | null
@@ -8,9 +9,12 @@ interface AuthState {
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, fullName: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   fetchProfile: () => Promise<void>
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>
+  hasGoogleTokens: () => Promise<boolean>
+  getGoogleTokens: () => Promise<any>
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -46,9 +50,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: data.user })
   },
 
+  signInWithGoogle: async () => {
+    await supabaseGoogleAuth.signInWithGoogle()
+  },
+
   signOut: async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    try {
+      await supabaseGoogleAuth.signOut()
+    } catch (error) {
+      console.warn('Error during Google sign out:', error)
+      // Continue with Supabase sign out even if Google revocation fails
+      const { error: supabaseError } = await supabase.auth.signOut()
+      if (supabaseError) throw supabaseError
+    }
 
     set({ user: null, profile: null })
   },
@@ -57,18 +71,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { user } = get()
     if (!user) return
 
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
 
-    if (error) {
-      console.error('Error fetching profile:', error)
-      return
+      if (error) {
+        console.error('Error fetching profile:', error)
+        return
+      }
+
+      // If profile exists, update it with current Google tokens
+      if (data) {
+        const googleTokens = await supabaseGoogleAuth.getGoogleTokens()
+        if (googleTokens) {
+          const updatedProfile = {
+            ...data,
+            google_tokens: googleTokens
+          }
+          set({ profile: updatedProfile })
+          
+          // Update the profile in the database with Google tokens
+          await get().updateProfile({ google_tokens: googleTokens })
+        } else {
+          set({ profile: data })
+        }
+      }
+    } catch (error) {
+      console.error('Error in fetchProfile:', error)
     }
-
-    set({ profile: data })
   },
 
   updateProfile: async (updates: Partial<UserProfile>) => {
@@ -85,6 +118,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (error) throw error
 
     set({ profile: data })
+  },
+
+  hasGoogleTokens: async () => {
+    return await supabaseGoogleAuth.hasValidGoogleTokens()
+  },
+
+  getGoogleTokens: async () => {
+    return await supabaseGoogleAuth.getGoogleTokens()
   },
 }))
 

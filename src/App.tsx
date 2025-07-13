@@ -20,6 +20,7 @@ import Expenses from './pages/Expenses'
 import EWayBills from './pages/EWayBills'
 import Payments from './pages/Payments'
 import GoogleAuthCallback from './pages/GoogleAuthCallback'
+import AuthCallback from './pages/AuthCallback'
 import { useAuthStore } from './store/auth'
 import { useTheme } from './hooks/useTheme'
 import './index.css'
@@ -54,6 +55,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/app" element={<Layout />}>
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
