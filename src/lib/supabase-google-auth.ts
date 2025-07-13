@@ -1,4 +1,5 @@
 import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../store/auth'
 import { supabase } from './supabase'
 import { Provider } from '@supabase/supabase-js'
 
@@ -45,24 +46,13 @@ export class SupabaseGoogleAuth {
    * Get Google tokens from the current session
    */
   async getGoogleTokens(): Promise<GoogleTokens | null> {
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const { profile } = useAuthStore.getState()
     
-    if (error) {
-      throw new Error(`Failed to get session: ${error.message}`)
-    }
-
-    if (!session?.provider_token || !session?.provider_refresh_token) {
+    if (!profile?.google_tokens) {
       return null
     }
 
-    return {
-      access_token: session.provider_token,
-      refresh_token: session.provider_refresh_token,
-      expires_in: session.expires_in || 3600,
-      expires_at: session.expires_at || Date.now() + 3600000,
-      provider_token: session.provider_token,
-      provider_refresh_token: session.provider_refresh_token
-    }
+    return profile.google_tokens
   }
 
   /**
