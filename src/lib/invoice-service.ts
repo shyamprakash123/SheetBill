@@ -102,13 +102,13 @@ export class InvoiceService {
       invoice.pdfUrl || ''
     ]
 
-    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Invoices!A1', [row])
+    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Invoices!A2', [row])
     return invoice
   }
 
   async getInvoices(): Promise<Invoice[]> {
     try {
-      const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Invoices!A:M')
+      const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Invoices!A2:M')
       if (!data || data.length === 0) {
         return []
       }
@@ -222,13 +222,13 @@ export class InvoiceService {
       customer.status
     ]
 
-    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Customers!A1', [row])
+    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Customers!A2', [row])
     return customer
   }
 
   async getCustomers(): Promise<Customer[]> {
     try {
-      const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Customers!A:K')
+      const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Customers!A2:K')
       if (!data || data.length === 0) {
         return []
       }
@@ -316,13 +316,13 @@ export class InvoiceService {
       product.status
     ]
 
-    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Products!A1', [row])
+    await this.sheetsService.appendToSheet(this.spreadsheetId, 'Products!A2', [row])
     return product
   }
 
   async getProducts(): Promise<Product[]> {
   try {
-    const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Products!A:M')
+    const data = await this.sheetsService.getSheetData(this.spreadsheetId, 'Products!A2:M')
     if (!data || data.length === 0) return []
 
     // const [headers, ...rows] = data

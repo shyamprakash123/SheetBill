@@ -142,7 +142,6 @@ supabase.auth.onAuthStateChange((event, session) => {
   
   if (session?.user) {
     useAuthStore.setState({ user: session.user, loading: false })
-    console.log("Again")
     fetchProfile()
   } else {
     useAuthStore.setState({ user: null, profile: null, loading: false })

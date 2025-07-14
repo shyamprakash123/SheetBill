@@ -96,17 +96,16 @@ export class SupabaseGoogleAuth {
 
     const updatedTokens = {
       ...profile.google_tokens,
-      access_token: refreshed.access_token,
-      expires_at: Date.now() + (refreshed.expires_in * 1000)
+      ...refreshed
     }
     
     // Update local state immediately to avoid infinite calls
-    useAuthStore.setState(state => ({
-      profile: state.profile ? {
-        ...state.profile,
-        google_tokens: updatedTokens
-      } : null
-    }))
+    // useAuthStore.setState(state => ({
+    //   profile: state.profile ? {
+    //     ...state.profile,
+    //     google_tokens: updatedTokens
+    //   } : null
+    // }))
     
     // Persist to database in background without waiting
     try {
