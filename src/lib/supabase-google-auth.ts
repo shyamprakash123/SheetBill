@@ -77,6 +77,26 @@ export class SupabaseGoogleAuth {
       throw new Error('No refresh token available')
     }
 
+    // Check if a refresh is already in progress
+    if (this.refreshPromise) {
+      return this.refreshPromise
+    }
+
+    // Store the refresh promise to prevent multiple simultaneous calls
+    this.refreshPromise = this.performTokenRefresh(profile)
+    
+    try {
+      const result = await this.refreshPromise
+      return result
+    } finally {
+      // Clear the promise when done
+      this.refreshPromise = null
+    }
+  }
+
+  private refreshPromise: Promise<GoogleTokens | null> | null = null
+
+  private async performTokenRefresh(profile: any): Promise<GoogleTokens | null> {
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -96,16 +116,17 @@ export class SupabaseGoogleAuth {
 
     const updatedTokens = {
       ...profile.google_tokens,
-      ...refreshed
+      ...refreshed,
+      expires_at: Date.now() + (refreshed.expires_in * 1000)
     }
     
     // Update local state immediately to avoid infinite calls
-    // useAuthStore.setState(state => ({
-    //   profile: state.profile ? {
-    //     ...state.profile,
-    //     google_tokens: updatedTokens
-    //   } : null
-    // }))
+    useAuthStore.setState(state => ({
+      profile: state.profile ? {
+        ...state.profile,
+        google_tokens: updatedTokens
+      } : null
+    }))
     
     // Persist to database in background without waiting
     try {
