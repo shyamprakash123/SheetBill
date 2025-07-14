@@ -83,24 +83,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
 
-      console.log("Profile",data)
-
-      set({ profile: data });
-
-      // return data;
-
       if (data) {
         const googleTokens = await supabaseGoogleAuth.getGoogleTokens();
-        console.log("googleTokens", googleTokens)
         if (googleTokens) {
           const updatedProfile = {
             ...data,
             google_tokens: googleTokens,
           };
           set({ profile: updatedProfile });
-          
-          // Persist the Google tokens in the database
-          await get().updateProfile({ google_tokens: googleTokens });
         } else {
           set({ profile: data });
         }

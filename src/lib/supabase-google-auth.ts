@@ -71,25 +71,12 @@ export class SupabaseGoogleAuth {
    * Refresh Google access token using Supabase
    */
   async refreshGoogleToken(): Promise<GoogleTokens | null> {
-    // const { data, error } = await supabase.auth.refreshSession()
-
-    // console.log(data);
-
-    // return data;
     const { profile, updateProfile } = useAuthStore.getState()
     
-    // if (error) {
-    //   throw new Error(`Failed to refresh token: ${error.message}`)
-    // }
+    if (!profile?.google_tokens?.refresh_token) {
+      throw new Error('No refresh token available')
+    }
 
-    // if (!data.session?.provider_token) {
-    //   throw new Error('No provider token available after refresh')
-    // }
-
-    console.log("refresh token fetvhing")
-
-    // TODO: Replace this mock with real call to Google's token endpoint.
-    // Example using fetch:
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -99,23 +86,42 @@ export class SupabaseGoogleAuth {
         refresh_token: profile.google_tokens.refresh_token,
         grant_type: 'refresh_token',
       })
-    });
-    const refreshed = await response.json();
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to refresh Google token')
+    }
+    
+    const refreshed = await response.json()
 
     const updatedTokens = {
       ...profile.google_tokens,
-      access_token: refreshed.access_token
+      access_token: refreshed.access_token,
+      expires_at: Date.now() + (refreshed.expires_in * 1000)
     }
     
-    console.log(updatedTokens);
+    // Update profile WITHOUT triggering auth state changes
+    try {
+      const { user } = useAuthStore.getState()
+      if (user) {
+        await supabase
+          .from('user_profiles')
+          .update({ google_tokens: updatedTokens })
+          .eq('id', user.id)
+        
+        // Update local state directly to avoid triggering fetchProfile
+        useAuthStore.setState(state => ({
+          profile: state.profile ? {
+            ...state.profile,
+            google_tokens: updatedTokens
+          } : null
+        }))
+      }
+    } catch (error) {
+      console.warn('Failed to persist refreshed tokens:', error)
+    }
 
-    // await updateProfile({ 
-    // google_tokens: {
-    //   ...updatedTokens
-    // }
-    // });
-
-    return refreshed;
+    return updatedTokens
   }
 
   /**
