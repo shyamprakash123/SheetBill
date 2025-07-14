@@ -100,25 +100,27 @@ export class SupabaseGoogleAuth {
       expires_at: Date.now() + (refreshed.expires_in * 1000)
     }
     
-    // Update profile WITHOUT triggering auth state changes
-    try {
-      const { user } = useAuthStore.getState()
-      if (user) {
-        await supabase
-          .from('user_profiles')
-          .update({ google_tokens: updatedTokens })
-          .eq('id', user.id)
-        
-        // Update local state directly to avoid triggering fetchProfile
-        useAuthStore.setState(state => ({
-          profile: state.profile ? {
-            ...state.profile,
-            google_tokens: updatedTokens
-          } : null
-        }))
-      }
-    } catch (error) {
-      console.warn('Failed to persist refreshed tokens:', error)
+    // Update local state immediately to avoid infinite calls
+    useAuthStore.setState(state => ({
+      profile: state.profile ? {
+        ...state.profile,
+        google_tokens: updatedTokens
+      } : null
+    }))
+    
+    // Persist to database in background without waiting
+    const { user } = useAuthStore.getState()
+    if (user) {
+      supabase
+        .from('user_profiles')
+        .update({ google_tokens: updatedTokens })
+        .eq('id', user.id)
+        .then(() => {
+          console.log('Google tokens refreshed and persisted')
+        })
+        .catch(error => {
+          console.warn('Failed to persist refreshed tokens:', error)
+        })
     }
 
     return updatedTokens
