@@ -87,21 +87,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ profile: data });
 
-      // if (data) {
-      //   const googleTokens = await supabaseGoogleAuth.getGoogleTokens();
-      //   if (googleTokens) {
-      //     const updatedProfile = {
-      //       ...data,
-      //       google_tokens: googleTokens,
-      //     };
-      //     set({ profile: updatedProfile });
+      // return data;
+
+      if (data) {
+        const googleTokens = await supabaseGoogleAuth.getGoogleTokens();
+        console.log("googleTokens", googleTokens)
+        if (googleTokens) {
+          const updatedProfile = {
+            ...data,
+            google_tokens: googleTokens,
+          };
+          set({ profile: updatedProfile });
           
-      //     // Persist the Google tokens in the database
-      //     await get().updateProfile({ google_tokens: googleTokens });
-      //   } else {
-      //     set({ profile: data });
-      //   }
-      // }
+          // Persist the Google tokens in the database
+          await get().updateProfile({ google_tokens: googleTokens });
+        } else {
+          set({ profile: data });
+        }
+      }
     } catch (error) {
       console.error('Error in fetchProfile:', error)
     }
@@ -149,6 +152,7 @@ supabase.auth.onAuthStateChange((event, session) => {
   
   if (session?.user) {
     useAuthStore.setState({ user: session.user, loading: false })
+    console.log("Again")
     fetchProfile()
   } else {
     useAuthStore.setState({ user: null, profile: null, loading: false })

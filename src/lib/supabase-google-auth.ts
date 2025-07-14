@@ -46,7 +46,19 @@ export class SupabaseGoogleAuth {
    * Get Google tokens from the current session
    */
   async getGoogleTokens(): Promise<GoogleTokens | null> {
+    const { data: { session }, error } = await supabase.auth.getSession()
     const { profile } = useAuthStore.getState()
+
+    if (session?.provider_token && session?.provider_refresh_token) {
+      return {
+      access_token: session.provider_token,
+      refresh_token: session.provider_refresh_token,
+      expires_in: session.expires_in || 3600,
+      expires_at: session.expires_at || Date.now() + 3600000,
+      provider_token: session.provider_token,
+      provider_refresh_token: session.provider_refresh_token
+    }
+    }
     
     if (!profile?.google_tokens) {
       return null
@@ -59,24 +71,51 @@ export class SupabaseGoogleAuth {
    * Refresh Google access token using Supabase
    */
   async refreshGoogleToken(): Promise<GoogleTokens | null> {
-    const { data, error } = await supabase.auth.refreshSession()
+    // const { data, error } = await supabase.auth.refreshSession()
+
+    // console.log(data);
+
+    // return data;
+    const { profile, updateProfile } = useAuthStore.getState()
     
-    if (error) {
-      throw new Error(`Failed to refresh token: ${error.message}`)
-    }
+    // if (error) {
+    //   throw new Error(`Failed to refresh token: ${error.message}`)
+    // }
 
-    if (!data.session?.provider_token) {
-      throw new Error('No provider token available after refresh')
-    }
+    // if (!data.session?.provider_token) {
+    //   throw new Error('No provider token available after refresh')
+    // }
 
-    return {
-      access_token: data.session.provider_token,
-      refresh_token: data.session.provider_refresh_token || '',
-      expires_in: data.session.expires_in || 3600,
-      expires_at: data.session.expires_at || Date.now() + 3600000,
-      provider_token: data.session.provider_token,
-      provider_refresh_token: data.session.provider_refresh_token || ''
+    console.log("refresh token fetvhing")
+
+    // TODO: Replace this mock with real call to Google's token endpoint.
+    // Example using fetch:
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        client_secret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
+        refresh_token: profile.google_tokens.refresh_token,
+        grant_type: 'refresh_token',
+      })
+    });
+    const refreshed = await response.json();
+
+    const updatedTokens = {
+      ...profile.google_tokens,
+      access_token: refreshed.access_token
     }
+    
+    console.log(updatedTokens);
+
+    // await updateProfile({ 
+    // google_tokens: {
+    //   ...updatedTokens
+    // }
+    // });
+
+    return refreshed;
   }
 
   /**

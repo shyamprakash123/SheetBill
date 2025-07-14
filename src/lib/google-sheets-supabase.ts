@@ -18,7 +18,7 @@ export class GoogleSheetsSupabaseService {
     const now = Date.now()
     const expiresAt = tokens.expires_at
     
-    if (expiresAt && now >= (expiresAt - 300000)) {
+    if (expiresAt && now >= (expiresAt - tokens.expires_in)) {
       // Token is expired or will expire soon, refresh it
       const refreshedTokens = await supabaseGoogleAuth.refreshGoogleToken()
       if (!refreshedTokens) {
