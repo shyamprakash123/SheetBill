@@ -109,18 +109,18 @@ export class SupabaseGoogleAuth {
     }))
     
     // Persist to database in background without waiting
-    const { user } = useAuthStore.getState()
-    if (user) {
-      supabase
-        .from('user_profiles')
-        .update({ google_tokens: updatedTokens })
-        .eq('id', user.id)
-        .then(() => {
-          console.log('Google tokens refreshed and persisted')
-        })
-        .catch(error => {
-          console.warn('Failed to persist refreshed tokens:', error)
-        })
+    try {
+      const { user } = useAuthStore.getState()
+      if (user) {
+        await supabase
+          .from('user_profiles')
+          .update({ google_tokens: updatedTokens })
+          .eq('id', user.id)
+        
+        console.log('Google tokens refreshed and persisted')
+      }
+    } catch (error) {
+      console.warn('Failed to persist refreshed tokens:', error)
     }
 
     return updatedTokens
