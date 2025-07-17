@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { useInvoiceStore } from '../store/invoice'
-import { useAuthStore } from '../store/auth'
-import { 
-  PlusIcon, 
-  EyeIcon, 
-  PencilIcon, 
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useInvoiceStore } from "../store/invoice";
+import { useAuthStore } from "../store/auth";
+import {
+  PlusIcon,
+  EyeIcon,
+  PencilIcon,
   TrashIcon,
   UserGroupIcon,
   EnvelopeIcon,
@@ -13,207 +13,218 @@ import {
   MapPinIcon,
   FunnelIcon,
   ArrowDownTrayIcon,
-  MagnifyingGlassIcon
-} from '@heroicons/react/24/outline'
-import Card from '../components/ui/Card'
-import Button from '../components/ui/Button'
-import Modal from '../components/ui/Modal'
-import GoogleAuthModal from '../components/GoogleAuthModal'
-import toast from 'react-hot-toast'
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
+import GoogleAuthModal from "../components/GoogleAuthModal";
+import toast from "react-hot-toast";
 
 export default function Customers() {
-  const { 
-    customers, 
-    fetchCustomers, 
-    createCustomer, 
-    updateCustomer,
-    initializeService,
-    loading 
-  } = useInvoiceStore()
-  const { profile } = useAuthStore()
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showGoogleAuth, setShowGoogleAuth] = useState(false)
-  const [editingCustomer, setEditingCustomer] = useState(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
+  const { customers, fetchCustomers, createCustomer, updateCustomer, loading } =
+    useInvoiceStore();
+  const { profile } = useAuthStore();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showGoogleAuth, setShowGoogleAuth] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [newCustomer, setNewCustomer] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    country: 'India',
-    gstin: ''
-  })
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    country: "India",
+    gstin: "",
+  });
 
   useEffect(() => {
     const initData = async () => {
       if (!profile?.google_tokens) {
-        setShowGoogleAuth(true)
-        return
+        setShowGoogleAuth(true);
+        return;
       }
-      
+
       try {
-        await initializeService()
-        await fetchCustomers()
+        await fetchCustomers();
       } catch (error) {
-        console.error('Error fetching customers:', error)
-        if (error.message?.includes('Google account')) {
-          setShowGoogleAuth(true)
+        console.error("Error fetching customers:", error);
+        if (error.message?.includes("Google account")) {
+          setShowGoogleAuth(true);
         }
       }
-    }
-    initData()
-  }, [profile])
+    };
+    initData();
+  }, [profile]);
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (!profile?.google_tokens) {
-      setShowGoogleAuth(true)
-      return
+      setShowGoogleAuth(true);
+      return;
     }
 
     if (!newCustomer.name.trim()) {
-      toast.error('Customer name is required')
-      return
+      toast.error("Customer name is required");
+      return;
     }
 
     try {
       if (editingCustomer) {
-        await updateCustomer(editingCustomer.id, newCustomer)
-        toast.success('Customer updated successfully!')
+        await updateCustomer(editingCustomer.id, newCustomer);
+        toast.success("Customer updated successfully!");
       } else {
         await createCustomer({
           ...newCustomer,
-          status: 'Active'
-        })
-        toast.success('Customer created successfully!')
+          status: "Active",
+        });
+        toast.success("Customer created successfully!");
       }
 
-      setNewCustomer({ 
-        name: '', 
-        email: '', 
-        phone: '', 
-        address: '', 
-        city: '', 
-        state: '', 
-        country: 'India', 
-        gstin: '' 
-      })
-      setShowCreateModal(false)
-      setEditingCustomer(null)
+      setNewCustomer({
+        name: "",
+        email: "",
+        phone: "",
+        address: "",
+        city: "",
+        state: "",
+        country: "India",
+        gstin: "",
+      });
+      setShowCreateModal(false);
+      setEditingCustomer(null);
     } catch (error) {
-      console.error('Error saving customer:', error)
-      toast.error('Failed to save customer')
+      console.error("Error saving customer:", error);
+      toast.error("Failed to save customer");
     }
-  }
+  };
 
   const handleEdit = (customer) => {
-    setEditingCustomer(customer)
+    setEditingCustomer(customer);
     setNewCustomer({
       name: customer.name,
       email: customer.email,
       phone: customer.phone,
       address: customer.address,
-      city: customer.city || '',
-      state: customer.state || '',
-      country: customer.country || 'India',
-      gstin: customer.gstin || ''
-    })
-    setShowCreateModal(true)
-  }
+      city: customer.city || "",
+      state: customer.state || "",
+      country: customer.country || "India",
+      gstin: customer.gstin || "",
+    });
+    setShowCreateModal(true);
+  };
 
   const handleCloseModal = () => {
-    setShowCreateModal(false)
-    setEditingCustomer(null)
-    setNewCustomer({ 
-      name: '', 
-      email: '', 
-      phone: '', 
-      address: '', 
-      city: '', 
-      state: '', 
-      country: 'India', 
-      gstin: '' 
-    })
-  }
+    setShowCreateModal(false);
+    setEditingCustomer(null);
+    setNewCustomer({
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      city: "",
+      state: "",
+      country: "India",
+      gstin: "",
+    });
+  };
 
   const handleGoogleAuthSuccess = async () => {
-    setShowGoogleAuth(false)
+    setShowGoogleAuth(false);
     try {
-      await initializeService()
-      await fetchCustomers()
-      toast.success('Google account connected! You can now manage customers.')
+      await fetchCustomers();
+      toast.success("Google account connected! You can now manage customers.");
     } catch (error) {
-      console.error('Error after Google auth:', error)
-      toast.error('Connected to Google but had issues setting up spreadsheet.')
+      console.error("Error after Google auth:", error);
+      toast.error("Connected to Google but had issues setting up spreadsheet.");
     }
-  }
+  };
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.phone?.includes(searchTerm) ||
-                         customer.id?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = filterStatus === 'all' || customer.status?.toLowerCase() === filterStatus.toLowerCase()
-    return matchesSearch && matchesStatus
-  })
+  const filteredCustomers = customers.filter((customer) => {
+    const matchesSearch =
+      customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone?.includes(searchTerm) ||
+      customer.id?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      filterStatus === "all" ||
+      customer.status?.toLowerCase() === filterStatus.toLowerCase();
+    return matchesSearch && matchesStatus;
+  });
 
-  const totalCustomers = customers.length
-  const activeCustomers = customers.filter(c => c.status === 'Active').length
-  const inactiveCustomers = customers.filter(c => c.status === 'Inactive').length
-  const customersWithGST = customers.filter(c => c.gstin && c.gstin.trim()).length
+  const totalCustomers = customers.length;
+  const activeCustomers = customers.filter((c) => c.status === "Active").length;
+  const inactiveCustomers = customers.filter(
+    (c) => c.status === "Inactive"
+  ).length;
+  const customersWithGST = customers.filter(
+    (c) => c.gstin && c.gstin.trim()
+  ).length;
 
   const stats = [
     {
-      title: 'Total Customers',
+      title: "Total Customers",
       value: totalCustomers.toString(),
       icon: UserGroupIcon,
-      color: 'bg-blue-500',
-      change: `+${Math.floor(totalCustomers * 0.1)} this month`
+      color: "bg-blue-500",
+      change: `+${Math.floor(totalCustomers * 0.1)} this month`,
     },
     {
-      title: 'Active Customers',
+      title: "Active Customers",
       value: activeCustomers.toString(),
       icon: UserGroupIcon,
-      color: 'bg-green-500',
-      change: `${totalCustomers > 0 ? Math.round((activeCustomers/totalCustomers)*100) : 0}% active`
+      color: "bg-green-500",
+      change: `${
+        totalCustomers > 0
+          ? Math.round((activeCustomers / totalCustomers) * 100)
+          : 0
+      }% active`,
     },
     {
-      title: 'Inactive Customers',
+      title: "Inactive Customers",
       value: inactiveCustomers.toString(),
       icon: UserGroupIcon,
-      color: 'bg-red-500',
-      change: `${totalCustomers > 0 ? Math.round((inactiveCustomers/totalCustomers)*100) : 0}% inactive`
+      color: "bg-red-500",
+      change: `${
+        totalCustomers > 0
+          ? Math.round((inactiveCustomers / totalCustomers) * 100)
+          : 0
+      }% inactive`,
     },
     {
-      title: 'GST Registered',
+      title: "GST Registered",
       value: customersWithGST.toString(),
       icon: UserGroupIcon,
-      color: 'bg-purple-500',
-      change: `${totalCustomers > 0 ? Math.round((customersWithGST/totalCustomers)*100) : 0}% with GST`
-    }
-  ]
+      color: "bg-purple-500",
+      change: `${
+        totalCustomers > 0
+          ? Math.round((customersWithGST / totalCustomers) * 100)
+          : 0
+      }% with GST`,
+    },
+  ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Active':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-      case 'Inactive':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      case "Active":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+      case "Inactive":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -226,7 +237,9 @@ export default function Customers() {
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
         >
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Customer Management</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Customer Management
+            </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               Manage your customer database and relationships
             </p>
@@ -288,7 +301,7 @@ export default function Customers() {
                 />
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               </div>
-              
+
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -299,7 +312,7 @@ export default function Customers() {
                 <option value="inactive">Inactive</option>
               </select>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Button variant="outline" size="sm">
                 <FunnelIcon className="h-4 w-4 mr-2" />
@@ -316,7 +329,7 @@ export default function Customers() {
               All Customers ({filteredCustomers.length})
             </h3>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
@@ -385,16 +398,22 @@ export default function Customers() {
                       <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                         <MapPinIcon className="h-4 w-4 mr-2" />
                         <div>
-                          {customer.city && customer.state ? `${customer.city}, ${customer.state}` : customer.address}
+                          {customer.city && customer.state
+                            ? `${customer.city}, ${customer.state}`
+                            : customer.address}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {customer.gstin || '-'}
+                      {customer.gstin || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status || 'Active')}`}>
-                        {customer.status || 'Active'}
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                          customer.status || "Active"
+                        )}`}
+                      >
+                        {customer.status || "Active"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -402,7 +421,7 @@ export default function Customers() {
                         <button className="p-1 text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 transition-colors">
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleEdit(customer)}
                           className="p-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
                         >
@@ -417,18 +436,17 @@ export default function Customers() {
                 ))}
               </tbody>
             </table>
-            
+
             {filteredCustomers.length === 0 && (
               <div className="text-center py-12">
                 <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">
-                  {searchTerm || filterStatus !== 'all' 
-                    ? 'No customers match your filters.' 
-                    : 'No customers found. Add your first customer to get started.'
-                  }
+                  {searchTerm || filterStatus !== "all"
+                    ? "No customers match your filters."
+                    : "No customers found. Add your first customer to get started."}
                 </p>
-                {(!searchTerm && filterStatus === 'all') && (
-                  <Button 
+                {!searchTerm && filterStatus === "all" && (
+                  <Button
                     onClick={() => setShowCreateModal(true)}
                     className="mt-4"
                   >
@@ -444,7 +462,7 @@ export default function Customers() {
         <Modal
           isOpen={showCreateModal}
           onClose={handleCloseModal}
-          title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
+          title={editingCustomer ? "Edit Customer" : "Add New Customer"}
         >
           <form onSubmit={handleCreateCustomer} className="space-y-6">
             <div>
@@ -455,12 +473,14 @@ export default function Customers() {
                 type="text"
                 required
                 value={newCustomer.name}
-                onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, name: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter customer name"
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -469,12 +489,14 @@ export default function Customers() {
                 <input
                   type="email"
                   value={newCustomer.email}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                  onChange={(e) =>
+                    setNewCustomer({ ...newCustomer, email: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="customer@example.com"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Phone
@@ -482,26 +504,30 @@ export default function Customers() {
                 <input
                   type="tel"
                   value={newCustomer.phone}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                  onChange={(e) =>
+                    setNewCustomer({ ...newCustomer, phone: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="+91-9876543210"
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Address
               </label>
               <textarea
                 value={newCustomer.address}
-                onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, address: e.target.value })
+                }
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter customer address"
               />
             </div>
-            
+
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -510,12 +536,14 @@ export default function Customers() {
                 <input
                   type="text"
                   value={newCustomer.city}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })}
+                  onChange={(e) =>
+                    setNewCustomer({ ...newCustomer, city: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="City"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   State
@@ -523,12 +551,14 @@ export default function Customers() {
                 <input
                   type="text"
                   value={newCustomer.state}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, state: e.target.value })}
+                  onChange={(e) =>
+                    setNewCustomer({ ...newCustomer, state: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="State"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Country
@@ -536,13 +566,15 @@ export default function Customers() {
                 <input
                   type="text"
                   value={newCustomer.country}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, country: e.target.value })}
+                  onChange={(e) =>
+                    setNewCustomer({ ...newCustomer, country: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Country"
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 GSTIN
@@ -550,12 +582,14 @@ export default function Customers() {
               <input
                 type="text"
                 value={newCustomer.gstin}
-                onChange={(e) => setNewCustomer({ ...newCustomer, gstin: e.target.value })}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, gstin: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="e.g., 27AABCU9603R1ZX"
               />
             </div>
-            
+
             <div className="flex justify-end space-x-3 pt-4">
               <Button
                 type="button"
@@ -565,12 +599,12 @@ export default function Customers() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 type="submit"
                 loading={loading}
                 disabled={!newCustomer.name.trim()}
               >
-                {editingCustomer ? 'Update Customer' : 'Add Customer'}
+                {editingCustomer ? "Update Customer" : "Add Customer"}
               </Button>
             </div>
           </form>
@@ -584,5 +618,5 @@ export default function Customers() {
         onSuccess={handleGoogleAuthSuccess}
       />
     </>
-  )
+  );
 }

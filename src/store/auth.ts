@@ -1,20 +1,29 @@
-import { create } from 'zustand'
-import { supabase, type UserProfile } from '../lib/supabase'
-import { User } from '@supabase/supabase-js'
-import { supabaseGoogleAuth } from '../lib/supabase-google-auth'
+import { create } from "zustand";
+import { supabase, type UserProfile } from "../lib/supabase";
+import { User } from "@supabase/supabase-js";
+import { supabaseGoogleAuth } from "../lib/supabase-google-auth";
+
+export interface GoogleTokens {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  expires_at: number;
+  provider_token: string;
+  provider_refresh_token: string;
+}
 
 interface AuthState {
-  user: User | null
-  profile: UserProfile | null
-  loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, fullName: string) => Promise<void>
-  signInWithGoogle: () => Promise<void>
-  signOut: () => Promise<void>
-  fetchProfile: () => Promise<void>
-  updateProfile: (updates: Partial<UserProfile>) => Promise<void>
-  hasGoogleTokens: () => Promise<boolean>
-  getGoogleTokens: () => Promise<any>
+  user: User | null;
+  profile: UserProfile | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
+  fetchProfile: () => Promise<GoogleTokens | null>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  hasGoogleTokens: () => Promise<boolean>;
+  getGoogleTokens: () => Promise<any>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -26,12 +35,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
-    })
+    });
 
-    if (error) throw error
+    if (error) throw error;
 
-    set({ user: data.user })
-    await get().fetchProfile()
+    set({ user: data.user });
+    await get().fetchProfile();
   },
 
   signUp: async (email: string, password: string, fullName: string) => {
@@ -43,44 +52,44 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           full_name: fullName,
         },
       },
-    })
+    });
 
-    if (error) throw error
+    if (error) throw error;
 
-    set({ user: data.user })
+    set({ user: data.user });
   },
 
   signInWithGoogle: async () => {
-    await supabaseGoogleAuth.signInWithGoogle()
+    await supabaseGoogleAuth.signInWithGoogle();
   },
 
   signOut: async () => {
     try {
-      await supabaseGoogleAuth.signOut()
+      await supabaseGoogleAuth.signOut();
     } catch (error) {
-      console.warn('Error during Google sign out:', error)
+      console.warn("Error during Google sign out:", error);
       // Continue with Supabase sign out even if Google revocation fails
-      const { error: supabaseError } = await supabase.auth.signOut()
-      if (supabaseError) throw supabaseError
+      const { error: supabaseError } = await supabase.auth.signOut();
+      if (supabaseError) throw supabaseError;
     }
 
-    set({ user: null, profile: null })
+    set({ user: null, profile: null });
   },
 
   fetchProfile: async () => {
-    const { user } = get()
-    if (!user) return
+    const { user } = get();
+    if (!user) return;
 
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+        .from("user_profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
       if (error) {
-        console.error('Error fetching profile:', error)
-        return
+        console.error("Error fetching profile:", error);
+        return;
       }
 
       if (data) {
@@ -95,55 +104,57 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ profile: data });
         }
       }
+
+      return data.google_tokens;
     } catch (error) {
-      console.error('Error in fetchProfile:', error)
+      console.error("Error in fetchProfile:", error);
     }
   },
 
   updateProfile: async (updates: Partial<UserProfile>) => {
-    const { user } = get()
-    if (!user) return
+    const { user } = get();
+    if (!user) return;
 
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from("user_profiles")
       .update(updates)
-      .eq('id', user.id)
+      .eq("id", user.id)
       .select()
-      .single()
+      .single();
 
-    if (error) throw error
+    if (error) throw error;
 
-    set({ profile: data })
+    set({ profile: data });
   },
 
   hasGoogleTokens: async () => {
     try {
-      const tokens = await supabaseGoogleAuth.getGoogleTokens()
-      return tokens !== null && tokens.access_token !== ''
+      const tokens = await supabaseGoogleAuth.getGoogleTokens();
+      return tokens !== null && tokens.access_token !== "";
     } catch (error) {
-      console.warn('Error checking Google tokens:', error)
-      return false
+      console.warn("Error checking Google tokens:", error);
+      return false;
     }
   },
 
   getGoogleTokens: async () => {
     try {
-      return await supabaseGoogleAuth.getGoogleTokens()
+      return await supabaseGoogleAuth.getGoogleTokens();
     } catch (error) {
-      console.warn('Error getting Google tokens:', error)
-      return null
+      console.warn("Error getting Google tokens:", error);
+      return null;
     }
   },
-}))
+}));
 
 // Initialize auth state
 supabase.auth.onAuthStateChange((event, session) => {
-  const { fetchProfile } = useAuthStore.getState()
-  
+  const { fetchProfile } = useAuthStore.getState();
+
   if (session?.user) {
-    useAuthStore.setState({ user: session.user, loading: false })
-    fetchProfile()
+    useAuthStore.setState({ user: session.user, loading: false });
+    fetchProfile();
   } else {
-    useAuthStore.setState({ user: null, profile: null, loading: false })
+    useAuthStore.setState({ user: null, profile: null, loading: false });
   }
-})
+});

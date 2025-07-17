@@ -1,45 +1,46 @@
-import React, { useState, useEffect } from 'react'
-import { Outlet, useLocation, Navigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useAuthStore } from '../store/auth'
-import Sidebar from './ui/Sidebar'
-import TopBar from './ui/TopBar'
-import CommandPalette from './ui/CommandPalette'
+import React, { useState, useEffect } from "react";
+import { Outlet, useLocation, Navigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuthStore } from "../store/auth";
+import Sidebar from "./ui/Sidebar";
+import TopBar from "./ui/TopBar";
+import CommandPalette from "./ui/CommandPalette";
+import SettingsSidebar from "./settings/SettingsSideBar";
 
 export default function Layout() {
-  const { user } = useAuthStore()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const { user } = useAuthStore();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   if (!user) {
-    return <Navigate to="/auth" replace />
+    return <Navigate to="/auth" replace />;
   }
 
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setCommandPaletteOpen(true)
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
       }
-    }
+    };
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [])
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Handle responsive behavior
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
-        setMobileSidebarOpen(false)
+        setMobileSidebarOpen(false);
       }
-    }
-    
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
@@ -58,8 +59,8 @@ export default function Layout() {
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
-        <Sidebar 
-          collapsed={sidebarCollapsed} 
+        <Sidebar
+          collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
       </div>
@@ -68,14 +69,14 @@ export default function Layout() {
       <AnimatePresence>
         {mobileSidebarOpen && (
           <motion.div
-            initial={{ x: '-100%' }}
+            initial={{ x: "-100%" }}
             animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'tween', duration: 0.3 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "tween", duration: 0.3 }}
             className="lg:hidden fixed inset-y-0 left-0 z-40"
           >
-            <Sidebar 
-              collapsed={false} 
+            <Sidebar
+              collapsed={false}
               onToggleCollapse={() => {}}
               className="w-80"
             />
@@ -84,7 +85,7 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Top Bar */}
-      <TopBar 
+      <TopBar
         onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         sidebarCollapsed={sidebarCollapsed}
@@ -93,14 +94,15 @@ export default function Layout() {
       {/* Main Content */}
       <motion.main
         initial={false}
-        animate={{ 
-          paddingLeft: window.innerWidth >= 1024 ? (sidebarCollapsed ? 80 : 280) : 0,
-          paddingTop: 64
+        animate={{
+          paddingLeft:
+            window.innerWidth >= 1024 ? (sidebarCollapsed ? 80 : 280) : 0,
+          paddingTop: 64,
         }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
         className="min-h-screen bg-gray-50 dark:bg-gray-900"
       >
-        <div className="p-6">
+        <div className="p-3 md:p-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -112,10 +114,10 @@ export default function Layout() {
       </motion.main>
 
       {/* Command Palette */}
-      <CommandPalette 
+      <CommandPalette
         isOpen={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
       />
     </div>
-  )
+  );
 }

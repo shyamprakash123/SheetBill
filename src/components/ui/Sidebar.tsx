@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
+import React, { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import {
   HomeIcon,
   DocumentTextIcon,
   ShoppingCartIcon,
@@ -19,124 +19,130 @@ import {
   ClipboardDocumentListIcon,
   ReceiptPercentIcon,
   TruckIcon,
-  BanknotesIcon
-} from '@heroicons/react/24/outline'
-import { useAuthStore } from '../../store/auth'
-import { clsx } from 'clsx'
+  BanknotesIcon,
+} from "@heroicons/react/24/outline";
+import { useAuthStore } from "../../store/auth";
+import { clsx } from "clsx";
+import SettingsSidebar from "../settings/SettingsSideBar";
 
 interface NavigationItem {
-  name: string
-  href: string
-  icon: React.ComponentType<{ className?: string }>
-  badge?: string | number
-  description: string
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string | number;
+  description: string;
 }
 
 interface SidebarProps {
-  collapsed: boolean
-  onToggleCollapse: () => void
-  className?: string
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  className?: string;
 }
 
 const navigation: NavigationItem[] = [
-  { 
-    name: 'Dashboard', 
-    href: '/app/dashboard', 
+  {
+    name: "Dashboard",
+    href: "/app/dashboard",
     icon: HomeIcon,
-    description: 'Overview and analytics'
+    description: "Overview and analytics",
   },
-  { 
-    name: 'Sales', 
-    href: '/app/sales', 
+  {
+    name: "Sales",
+    href: "/app/sales",
     icon: DocumentTextIcon,
-    description: 'Invoices and sales management'
+    description: "Invoices and sales management",
   },
-  { 
-    name: 'Credit Notes', 
-    href: '/app/credit-notes', 
+  {
+    name: "Credit Notes",
+    href: "/app/credit-notes",
     icon: DocumentMinusIcon,
-    description: 'Credit notes and adjustments'
+    description: "Credit notes and adjustments",
   },
-  { 
-    name: 'Purchases', 
-    href: '/app/purchases', 
+  {
+    name: "Purchases",
+    href: "/app/purchases",
     icon: ShoppingCartIcon,
-    description: 'Purchase orders and bills'
+    description: "Purchase orders and bills",
   },
-  { 
-    name: 'Purchase Orders', 
-    href: '/app/purchase-orders', 
+  {
+    name: "Purchase Orders",
+    href: "/app/purchase-orders",
     icon: ClipboardDocumentListIcon,
-    description: 'Manage purchase orders'
+    description: "Manage purchase orders",
   },
-  { 
-    name: 'Expenses', 
-    href: '/app/expenses', 
+  {
+    name: "Expenses",
+    href: "/app/expenses",
     icon: ReceiptPercentIcon,
-    description: 'Track business expenses'
+    description: "Track business expenses",
   },
-  { 
-    name: 'Quotations', 
-    href: '/app/quotations', 
+  {
+    name: "Quotations",
+    href: "/app/quotations",
     icon: DocumentDuplicateIcon,
-    description: 'Quotes and estimates'
+    description: "Quotes and estimates",
   },
-  { 
-    name: 'Inventory', 
-    href: '/app/inventory', 
+  {
+    name: "Inventory",
+    href: "/app/inventory",
     icon: CubeIcon,
-    description: 'Products and stock management'
+    description: "Products and stock management",
   },
-  { 
-    name: 'E-Way Bills', 
-    href: '/app/eway-bills', 
+  {
+    name: "E-Way Bills",
+    href: "/app/eway-bills",
     icon: TruckIcon,
-    description: 'Generate and manage E-Way Bills'
+    description: "Generate and manage E-Way Bills",
   },
-  { 
-    name: 'Payments', 
-    href: '/app/payments', 
+  {
+    name: "Payments",
+    href: "/app/payments",
     icon: BanknotesIcon,
-    description: 'Payment tracking and management'
+    description: "Payment tracking and management",
   },
-  { 
-    name: 'Reports', 
-    href: '/app/reports', 
+  {
+    name: "Reports",
+    href: "/app/reports",
     icon: ChartBarIcon,
-    description: 'Business insights and GST reports'
+    description: "Business insights and GST reports",
   },
-  { 
-    name: 'Customers', 
-    href: '/app/customers', 
+  {
+    name: "Customers",
+    href: "/app/customers",
     icon: UserGroupIcon,
-    description: 'Customer database'
+    description: "Customer database",
   },
-  { 
-    name: 'Vendors', 
-    href: '/app/vendors', 
+  {
+    name: "Vendors",
+    href: "/app/vendors",
     icon: BuildingOfficeIcon,
-    description: 'Vendor management'
+    description: "Vendor management",
   },
-  { 
-    name: 'Settings', 
-    href: '/app/settings', 
+  {
+    name: "Settings",
+    href: "/app/settings",
     icon: CogIcon,
-    description: 'Account and preferences'
+    description: "Account and preferences",
   },
-]
+];
 
-export default function Sidebar({ collapsed, onToggleCollapse, className }: SidebarProps) {
-  const location = useLocation()
-  const { profile } = useAuthStore()
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
+export default function Sidebar({
+  collapsed,
+  onToggleCollapse,
+  className,
+}: SidebarProps) {
+  const location = useLocation();
+  const { profile } = useAuthStore();
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const isSettingsPage = location.pathname.includes("/settings");
 
   return (
     <motion.div
       initial={false}
       animate={{ width: collapsed ? 80 : 280 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
       className={clsx(
-        'fixed left-0 top-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-40 flex flex-col',
+        "fixed left-0 top-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-40 flex flex-col",
         className
       )}
     >
@@ -155,7 +161,9 @@ export default function Sidebar({ collapsed, onToggleCollapse, className }: Side
                 <span className="text-white font-bold text-sm">S</span>
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">SheetBill</h1>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+                  SheetBill
+                </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                   {profile?.plan} Plan
                 </p>
@@ -163,7 +171,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, className }: Side
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         <button
           onClick={onToggleCollapse}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -177,92 +185,100 @@ export default function Sidebar({ collapsed, onToggleCollapse, className }: Side
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive = location.pathname === item.href
-          
-          return (
-            <div
-              key={item.name}
-              className="relative"
-              onMouseEnter={() => setHoveredItem(item.name)}
-              onMouseLeave={() => setHoveredItem(null)}
-            >
-              <Link
-                to={item.href}
-                className={clsx(
-                  'group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative',
-                  isActive
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-                )}
+      {isSettingsPage ? (
+        <SettingsSidebar collapsed={collapsed} />
+      ) : (
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {navigation.map((item) => {
+            const isActive = location.pathname === item.href;
+
+            return (
+              <div
+                key={item.name}
+                className="relative"
+                onMouseEnter={() => setHoveredItem(item.name)}
+                onMouseLeave={() => setHoveredItem(null)}
               >
-                <item.icon 
+                <Link
+                  to={item.href}
                   className={clsx(
-                    'flex-shrink-0 h-5 w-5 transition-colors',
-                    collapsed ? 'mx-auto' : 'mr-3',
-                    isActive 
-                      ? 'text-primary-600 dark:text-primary-400' 
-                      : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
+                    "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative",
+                    isActive
+                      ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                   )}
-                />
-                
-                <AnimatePresence>
-                  {!collapsed && (
+                >
+                  <item.icon
+                    className={clsx(
+                      "flex-shrink-0 h-5 w-5 transition-colors",
+                      collapsed ? "mx-auto" : "mr-3",
+                      isActive
+                        ? "text-primary-600 dark:text-primary-400"
+                        : "text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300"
+                    )}
+                  />
+
+                  <AnimatePresence>
+                    {!collapsed && (
+                      <motion.div
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: "auto" }}
+                        exit={{ opacity: 0, width: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex items-center justify-between flex-1 overflow-hidden"
+                      >
+                        <span className="truncate">{item.name}</span>
+                        {item.badge && (
+                          <span className="ml-2 px-2 py-0.5 text-xs bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Active indicator */}
+                  {isActive && (
                     <motion.div
-                      initial={{ opacity: 0, width: 0 }}
-                      animate={{ opacity: 1, width: 'auto' }}
-                      exit={{ opacity: 0, width: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center justify-between flex-1 overflow-hidden"
+                      layoutId="activeTab"
+                      className="absolute left-0 top-0 bottom-0 w-1 bg-primary-600 dark:bg-primary-400 rounded-r-full"
+                      transition={{
+                        type: "spring",
+                        bounce: 0.2,
+                        duration: 0.6,
+                      }}
+                    />
+                  )}
+                </Link>
+
+                {/* Tooltip for collapsed state */}
+                <AnimatePresence>
+                  {collapsed && hoveredItem === item.name && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-full top-0 ml-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap"
                     >
-                      <span className="truncate">{item.name}</span>
-                      {item.badge && (
-                        <span className="ml-2 px-2 py-0.5 text-xs bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full">
-                          {item.badge}
-                        </span>
-                      )}
+                      <div className="font-medium">{item.name}</div>
+                      <div className="text-xs text-gray-300 dark:text-gray-400 mt-1">
+                        {item.description}
+                      </div>
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 dark:bg-gray-700 rotate-45" />
                     </motion.div>
                   )}
                 </AnimatePresence>
-
-                {/* Active indicator */}
-                {isActive && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary-600 dark:bg-primary-400 rounded-r-full"
-                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-              </Link>
-
-              {/* Tooltip for collapsed state */}
-              <AnimatePresence>
-                {collapsed && hoveredItem === item.name && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: -10, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute left-full top-0 ml-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap"
-                  >
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-xs text-gray-300 dark:text-gray-400 mt-1">
-                      {item.description}
-                    </div>
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 dark:bg-gray-700 rotate-45" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )
-        })}
-      </nav>
+              </div>
+            );
+          })}
+        </nav>
+      )}
 
       {/* Footer */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-800">
         <AnimatePresence>
-          {!collapsed && profile?.plan === 'free' && (
+          {!collapsed && profile?.plan === "free" && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -286,5 +302,5 @@ export default function Sidebar({ collapsed, onToggleCollapse, className }: Side
         </AnimatePresence>
       </div>
     </motion.div>
-  )
+  );
 }

@@ -45,7 +45,6 @@ export default function Dashboard() {
       }
 
       try {
-        await initializeService();
         const invoiceStats = await getInvoiceStats();
         setStats(invoiceStats);
       } catch (error) {
@@ -61,7 +60,6 @@ export default function Dashboard() {
         }
       }
     };
-
     initData();
   }, []);
 

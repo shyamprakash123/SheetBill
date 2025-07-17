@@ -4,7 +4,15 @@ import {
   Invoice,
   Customer,
   Product,
-} from "../lib/invoice-service";
+  Settings,
+  CompanyDetails,
+  UserProfile,
+  Preferences,
+  ThermalPrintSettings,
+  SignatureSettings,
+  NotesAndTerms,
+  BankDetails,
+} from "../lib/backend-service";
 import { googleSheetsSupabaseService } from "../lib/google-sheets-supabase";
 import { supabaseGoogleAuth } from "../lib/supabase-google-auth";
 import { useAuthStore } from "./auth";
@@ -14,6 +22,7 @@ interface InvoiceState {
   invoices: Invoice[];
   customers: Customer[];
   products: Product[];
+  settings: Settings;
   loading: boolean;
   error: string | null;
 
@@ -43,6 +52,21 @@ interface InvoiceState {
   ) => Promise<Product>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<Product>;
 
+  // Settings operations
+  updateCompanyDetails: (details: Partial<CompanyDetails>) => Promise<boolean>;
+  fetchAllSettings: () => Promise<Settings>;
+  // updateUserProfile: (profile: Partial<UserProfile>) => void;
+  updatePreferences: (preferences: Partial<Preferences>) => void;
+  // updateThermalPrintSettings: (settings: Partial<ThermalPrintSettings>) => void;
+  updateSignatures: (signatures: Partial<SignatureSettings>) => void;
+  updateNotesTerms: (notesTerms: Partial<NotesAndTerms>) => void;
+  // addBank: (bank: Omit<BankDetails, "id">) => void;
+  updateBank: (bank: Partial<BankDetails>) => void;
+  // removeBank: (id: string) => void;
+  // setLoading: (section: string, loading: boolean) => void;
+  // setError: (section: string, error: string | null) => void;
+  // resetSection: (section: string) => void;
+
   // Search operations
   searchInvoices: (query: string) => Promise<Invoice[]>;
   searchCustomers: (query: string) => Promise<Customer[]>;
@@ -59,6 +83,15 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   invoices: [],
   customers: [],
   products: [],
+  settings: {
+    companyDetails: {},
+    userProfile: {},
+    preferences: {},
+    thermalPrintSettings: {},
+    signatures: {},
+    notesTerms: [],
+    banks: [],
+  },
   loading: false,
   error: null,
 
@@ -322,6 +355,166 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       throw error;
     } finally {
       set({ loading: false });
+    }
+  },
+
+  updateCompanyDetails: async (details) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+
+    try {
+      await service.updateSection("companyDetails", details);
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          companyDetails: {
+            ...state.settings.companyDetails,
+            ...details,
+          },
+        },
+      }));
+    } catch (error) {
+      console.error("Error updating product:", error);
+      set({ error: "Failed to update product" });
+      throw error;
+    } finally {
+      set({ loading: false });
+      return true;
+    }
+  },
+
+  fetchAllSettings: async () => {
+    const { service } = get();
+
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+
+    try {
+      const settings = await service.getAllSettings();
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          ...settings,
+        },
+      }));
+      return settings;
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      set({ error: "Failed to fetch settings" });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  updatePreferences: async (details) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+
+    try {
+      await service.updateSection("preferences", details);
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          preferences: {
+            ...state.settings.preferences,
+            ...details,
+          },
+        },
+      }));
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      set({ error: "Failed to update preferrences" });
+      throw error;
+    } finally {
+      set({ loading: false });
+      return true;
+    }
+  },
+
+  updateSignatures: async (details) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+
+    try {
+      await service.updateSection("signatures", details);
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          signatures: {
+            ...state.settings.signatures,
+            ...details,
+          },
+        },
+      }));
+    } catch (error) {
+      console.error("Error updating sigatures:", error);
+      set({ error: "Failed to update signatures" });
+      throw error;
+    } finally {
+      set({ loading: false });
+      return true;
+    }
+  },
+
+  updateNotesTerms: async (details) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+
+    try {
+      await service.updateSection("notesTerms", details);
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          notesTerms: {
+            ...state.settings.notesTerms,
+            ...details,
+          },
+        },
+      }));
+    } catch (error) {
+      console.error("Error updating NotesTerms:", error);
+      set({ error: "Failed to update NotesTerms" });
+      throw error;
+    } finally {
+      set({ loading: false });
+      return true;
+    }
+  },
+
+  updateBank: async (details) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+
+    try {
+      await service.updateSection("banks", details);
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          banks: {
+            ...state.settings.banks,
+            ...details,
+          },
+        },
+      }));
+    } catch (error) {
+      console.error("Error updating NotesTerms:", error);
+      set({ error: "Failed to update NotesTerms" });
+      throw error;
+    } finally {
+      set({ loading: false });
+      return true;
     }
   },
 

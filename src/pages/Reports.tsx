@@ -43,7 +43,6 @@ export default function Reports() {
       }
 
       try {
-        await initializeService();
         await Promise.all([fetchInvoices(), fetchProducts(), fetchCustomers()]);
         const invoiceStats = await getInvoiceStats();
         setStats(invoiceStats);

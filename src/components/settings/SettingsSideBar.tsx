@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -12,6 +12,7 @@ import {
   PencilSquareIcon,
   DocumentTextIcon,
   BanknotesIcon,
+  ChevronLeftIcon,
 } from "@heroicons/react/24/outline";
 import { clsx } from "clsx";
 
@@ -72,50 +73,76 @@ const menuItems: MenuItem[] = [
 
 interface SettingsSidebarProps {
   className?: string;
+  collapsed?: boolean;
 }
 
-export default function SettingsSidebar({ className }: SettingsSidebarProps) {
+export default function SettingsSidebar({
+  className,
+  collapsed,
+}: SettingsSidebarProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(
     new Set(["profile"])
   );
+  const navigate = useNavigate();
 
   const activeTab = searchParams.get("tab") || "company-details";
-  const activeSubtab = searchParams.get("subtab");
+  const activeSubTab = searchParams.get("subtab");
 
   const toggleExpanded = (itemId: string) => {
     const newExpanded = new Set(expandedItems);
+    let isExpanded = true;
     if (newExpanded.has(itemId)) {
       newExpanded.delete(itemId);
+      isExpanded = false;
     } else {
       newExpanded.add(itemId);
+      isExpanded = true;
     }
     setExpandedItems(newExpanded);
+    return isExpanded;
   };
 
-  const handleItemClick = (itemId: string, hasChildren: boolean) => {
+  const handleItemClick = (
+    itemId: string,
+    hasChildren: boolean,
+    children: MenuItem[],
+    parentId: string
+  ) => {
     if (hasChildren) {
-      toggleExpanded(itemId);
+      const isExpanded = toggleExpanded(itemId);
+      const newParams = new URLSearchParams(searchParams);
+      if (isExpanded) {
+        newParams.set("subtab", itemId);
+        newParams.set("tab", children[0].id);
+      }
+      setSearchParams(newParams);
     } else {
       const newParams = new URLSearchParams(searchParams);
+      newParams.set("subtab", parentId);
       newParams.set("tab", itemId);
-      if (activeSubtab) {
-        newParams.delete("subtab");
-      }
       setSearchParams(newParams);
     }
   };
 
-  const renderMenuItem = (item: MenuItem, level = 0) => {
+  const renderMenuItem = (
+    item: MenuItem,
+    level = 0,
+    collapsed: boolean,
+    parentId: string
+  ) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedItems.has(item.id);
     const isActive = activeTab === item.id;
+    const isActiveSubTab = activeSubTab === item.id;
     const Icon = item.icon;
 
     return (
       <div key={item.id}>
         <button
-          onClick={() => handleItemClick(item.id, hasChildren)}
+          onClick={() =>
+            handleItemClick(item.id, hasChildren, item.children, parentId)
+          }
           className={clsx(
             "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
             level === 0 ? "mb-1" : "mb-0.5 ml-4",
@@ -125,21 +152,42 @@ export default function SettingsSidebar({ className }: SettingsSidebarProps) {
           )}
         >
           <div className="flex items-center">
-            <Icon className={clsx("h-4 w-4 mr-3", level > 0 && "ml-2")} />
-            <span>{item.label}</span>
+            <Icon
+              className={clsx(
+                "h-4 w-4 mr-3",
+                level > 0 && "ml-2",
+                "flex-shrink-0 h-5 w-5 transition-colors",
+                collapsed ? "mx-auto" : "mr-3",
+                isActiveSubTab || isActive
+                  ? "text-primary-600 dark:text-primary-400"
+                  : "text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300"
+              )}
+            />
+            <span
+              className={clsx(
+                collapsed ? "hidden" : "block",
+                isActiveSubTab || isActive
+                  ? "text-primary-600 dark:text-primary-400"
+                  : "text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300"
+              )}
+            >
+              {item.label}
+            </span>
           </div>
           {hasChildren && (
             <motion.div
               animate={{ rotate: isExpanded ? 90 : 0 }}
               transition={{ duration: 0.2 }}
             >
-              <ChevronRightIcon className="h-4 w-4" />
+              <ChevronRightIcon
+                className={`h-4 w-4 ${collapsed ? "hidden" : "block"}`}
+              />
             </motion.div>
           )}
         </button>
 
         <AnimatePresence>
-          {hasChildren && isExpanded && (
+          {hasChildren && isExpanded && !collapsed && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -149,7 +197,7 @@ export default function SettingsSidebar({ className }: SettingsSidebarProps) {
             >
               <div className="ml-2 border-l border-gray-200 dark:border-gray-700 pl-2">
                 {item.children?.map((child) =>
-                  renderMenuItem(child, level + 1)
+                  renderMenuItem(child, level + 1, collapsed, item.id)
                 )}
               </div>
             </motion.div>
@@ -162,21 +210,23 @@ export default function SettingsSidebar({ className }: SettingsSidebarProps) {
   return (
     <div
       className={clsx(
-        "w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4",
+        "w-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4",
         className
       )}
     >
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-          Settings
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Configure your account and application preferences
-        </p>
-      </div>
-
+      <button
+        onClick={() => navigate("/app/dashboard")}
+        className={clsx(
+          "w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-gray-100"
+        )}
+      >
+        <ChevronLeftIcon
+          className={`h-4 w-4 mr-4 ${collapsed ? "hidden" : "block"}`}
+        />
+        <span className="text-gray-600 text-md">Back</span>
+      </button>
       <nav className="space-y-1">
-        {menuItems.map((item) => renderMenuItem(item))}
+        {menuItems.map((item) => renderMenuItem(item, 0, collapsed, ""))}
       </nav>
     </div>
   );

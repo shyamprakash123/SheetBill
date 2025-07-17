@@ -1,63 +1,80 @@
-import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { PlusIcon, TrashIcon, UserIcon, CubeIcon } from '@heroicons/react/24/outline'
-import { Invoice, InvoiceItem, Customer, Product } from '../lib/invoice-service'
-import Button from './ui/Button'
-import Modal from './ui/Modal'
-import { format } from 'date-fns'
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  PlusIcon,
+  TrashIcon,
+  UserIcon,
+  CubeIcon,
+} from "@heroicons/react/24/outline";
+import {
+  Invoice,
+  InvoiceItem,
+  Customer,
+  Product,
+} from "../lib/backend-service";
+import Button from "./ui/Button";
+import Modal from "./ui/Modal";
+import { format } from "date-fns";
 
 interface InvoiceFormProps {
-  invoice?: Invoice
-  customers: Customer[]
-  products: Product[]
-  onSave: (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
-  onCancel: () => void
-  loading?: boolean
+  invoice?: Invoice;
+  customers: Customer[];
+  products: Product[];
+  onSave: (
+    invoice: Omit<Invoice, "id" | "createdAt" | "updatedAt">
+  ) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
 }
 
-export default function InvoiceForm({ 
-  invoice, 
-  customers, 
-  products, 
-  onSave, 
-  onCancel, 
-  loading = false 
+export default function InvoiceForm({
+  invoice,
+  customers,
+  products,
+  onSave,
+  onCancel,
+  loading = false,
 }: InvoiceFormProps) {
   const [formData, setFormData] = useState({
-    customerId: invoice?.customerId || '',
-    customerName: invoice?.customerName || '',
-    customerEmail: invoice?.customerEmail || '',
-    customerPhone: invoice?.customerPhone || '',
-    customerAddress: invoice?.customerAddress || '',
-    customerGSTIN: invoice?.customerGSTIN || '',
-    date: invoice?.date || format(new Date(), 'yyyy-MM-dd'),
-    dueDate: invoice?.dueDate || format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    status: invoice?.status || 'Draft' as const,
-    notes: invoice?.notes || '',
-    paymentTerms: invoice?.paymentTerms || 'Net 30',
-    items: invoice?.items || [] as InvoiceItem[]
-  })
+    customerId: invoice?.customerId || "",
+    customerName: invoice?.customerName || "",
+    customerEmail: invoice?.customerEmail || "",
+    customerPhone: invoice?.customerPhone || "",
+    customerAddress: invoice?.customerAddress || "",
+    customerGSTIN: invoice?.customerGSTIN || "",
+    date: invoice?.date || format(new Date(), "yyyy-MM-dd"),
+    dueDate:
+      invoice?.dueDate ||
+      format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"),
+    status: invoice?.status || ("Draft" as const),
+    notes: invoice?.notes || "",
+    paymentTerms: invoice?.paymentTerms || "Net 30",
+    items: invoice?.items || ([] as InvoiceItem[]),
+  });
 
-  const [showCustomerModal, setShowCustomerModal] = useState(false)
-  const [showProductModal, setShowProductModal] = useState(false)
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
 
   // Calculate totals
-  const subtotal = formData.items.reduce((sum, item) => sum + item.amount, 0)
-  const taxAmount = formData.items.reduce((sum, item) => sum + item.taxAmount, 0)
-  const total = subtotal + taxAmount
+  const subtotal = formData.items.reduce((sum, item) => sum + item.amount, 0);
+  const taxAmount = formData.items.reduce(
+    (sum, item) => sum + item.taxAmount,
+    0
+  );
+  const total = subtotal + taxAmount;
 
   const handleCustomerSelect = (customer: Customer) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       customerId: customer.id,
       customerName: customer.name,
       customerEmail: customer.email,
       customerPhone: customer.phone,
       customerAddress: customer.address,
-      customerGSTIN: customer.gstin || ''
-    }))
-    setShowCustomerModal(false)
-  }
+      customerGSTIN: customer.gstin || "",
+    }));
+    setShowCustomerModal(false);
+  };
 
   const handleAddItem = (product: Product) => {
     const newItem: InvoiceItem = {
@@ -69,52 +86,56 @@ export default function InvoiceForm({
       rate: product.price,
       amount: product.price,
       taxRate: product.taxRate,
-      taxAmount: (product.price * product.taxRate) / 100
-    }
+      taxAmount: (product.price * product.taxRate) / 100,
+    };
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      items: [...prev.items, newItem]
-    }))
-    setShowProductModal(false)
-  }
+      items: [...prev.items, newItem],
+    }));
+    setShowProductModal(false);
+  };
 
-  const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
-    const updatedItems = [...formData.items]
-    updatedItems[index] = { ...updatedItems[index], [field]: value }
+  const handleItemChange = (
+    index: number,
+    field: keyof InvoiceItem,
+    value: any
+  ) => {
+    const updatedItems = [...formData.items];
+    updatedItems[index] = { ...updatedItems[index], [field]: value };
 
     // Recalculate amounts when quantity or rate changes
-    if (field === 'quantity' || field === 'rate') {
-      const item = updatedItems[index]
-      item.amount = item.quantity * item.rate
-      item.taxAmount = (item.amount * item.taxRate) / 100
+    if (field === "quantity" || field === "rate") {
+      const item = updatedItems[index];
+      item.amount = item.quantity * item.rate;
+      item.taxAmount = (item.amount * item.taxRate) / 100;
     }
 
-    setFormData(prev => ({ ...prev, items: updatedItems }))
-  }
+    setFormData((prev) => ({ ...prev, items: updatedItems }));
+  };
 
   const handleRemoveItem = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }))
-  }
+      items: prev.items.filter((_, i) => i !== index),
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (formData.items.length === 0) {
-      alert('Please add at least one item to the invoice')
-      return
+      alert("Please add at least one item to the invoice");
+      return;
     }
 
     await onSave({
       ...formData,
       subtotal,
       taxAmount,
-      total
-    })
-  }
+      total,
+    });
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -122,14 +143,14 @@ export default function InvoiceForm({
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {invoice ? 'Edit Invoice' : 'Create New Invoice'}
+            {invoice ? "Edit Invoice" : "Create New Invoice"}
           </h2>
           <div className="flex space-x-3">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
             <Button type="submit" loading={loading}>
-              {invoice ? 'Update Invoice' : 'Create Invoice'}
+              {invoice ? "Update Invoice" : "Create Invoice"}
             </Button>
           </div>
         </div>
@@ -137,7 +158,9 @@ export default function InvoiceForm({
         {/* Customer Information */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Customer Information</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Customer Information
+            </h3>
             <Button
               type="button"
               variant="outline"
@@ -158,7 +181,12 @@ export default function InvoiceForm({
                 type="text"
                 required
                 value={formData.customerName}
-                onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    customerName: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -169,7 +197,12 @@ export default function InvoiceForm({
               <input
                 type="email"
                 value={formData.customerEmail}
-                onChange={(e) => setFormData(prev => ({ ...prev, customerEmail: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    customerEmail: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -180,7 +213,12 @@ export default function InvoiceForm({
               <input
                 type="tel"
                 value={formData.customerPhone}
-                onChange={(e) => setFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    customerPhone: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -191,7 +229,12 @@ export default function InvoiceForm({
               <input
                 type="text"
                 value={formData.customerGSTIN}
-                onChange={(e) => setFormData(prev => ({ ...prev, customerGSTIN: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    customerGSTIN: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -202,7 +245,12 @@ export default function InvoiceForm({
               <textarea
                 rows={3}
                 value={formData.customerAddress}
-                onChange={(e) => setFormData(prev => ({ ...prev, customerAddress: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    customerAddress: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -211,8 +259,10 @@ export default function InvoiceForm({
 
         {/* Invoice Details */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Invoice Details</h3>
-          
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Invoice Details
+          </h3>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -222,7 +272,9 @@ export default function InvoiceForm({
                 type="date"
                 required
                 value={formData.date}
-                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, date: e.target.value }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -234,7 +286,9 @@ export default function InvoiceForm({
                 type="date"
                 required
                 value={formData.dueDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, dueDate: e.target.value }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -244,7 +298,12 @@ export default function InvoiceForm({
               </label>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    status: e.target.value as any,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value="Draft">Draft</option>
@@ -260,7 +319,9 @@ export default function InvoiceForm({
         {/* Items */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Items</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Items
+            </h3>
             <Button
               type="button"
               variant="outline"
@@ -282,22 +343,41 @@ export default function InvoiceForm({
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Item</th>
-                    <th className="text-center py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Qty</th>
-                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Rate</th>
-                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Amount</th>
-                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Tax</th>
-                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Total</th>
+                    <th className="text-left py-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Item
+                    </th>
+                    <th className="text-center py-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Qty
+                    </th>
+                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Rate
+                    </th>
+                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Amount
+                    </th>
+                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Tax
+                    </th>
+                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Total
+                    </th>
                     <th className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {formData.items.map((item, index) => (
-                    <tr key={item.id} className="border-b border-gray-100 dark:border-gray-700">
+                    <tr
+                      key={item.id}
+                      className="border-b border-gray-100 dark:border-gray-700"
+                    >
                       <td className="py-3">
                         <div>
-                          <div className="font-medium text-gray-900 dark:text-white">{item.productName}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{item.description}</div>
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            {item.productName}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {item.description}
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 text-center">
@@ -305,7 +385,13 @@ export default function InvoiceForm({
                           type="number"
                           min="1"
                           value={item.quantity}
-                          onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "quantity",
+                              parseInt(e.target.value) || 1
+                            )
+                          }
                           className="w-16 px-2 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         />
                       </td>
@@ -314,7 +400,13 @@ export default function InvoiceForm({
                           type="number"
                           step="0.01"
                           value={item.rate}
-                          onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "rate",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
                           className="w-24 px-2 py-1 text-right border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         />
                       </td>
@@ -348,16 +440,24 @@ export default function InvoiceForm({
             <div className="mt-6 flex justify-end">
               <div className="w-64 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                  <span className="text-gray-900 dark:text-white">₹{subtotal.toFixed(2)}</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Subtotal:
+                  </span>
+                  <span className="text-gray-900 dark:text-white">
+                    ₹{subtotal.toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">Tax:</span>
-                  <span className="text-gray-900 dark:text-white">₹{taxAmount.toFixed(2)}</span>
+                  <span className="text-gray-900 dark:text-white">
+                    ₹{taxAmount.toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-lg font-semibold border-t border-gray-200 dark:border-gray-700 pt-2">
                   <span className="text-gray-900 dark:text-white">Total:</span>
-                  <span className="text-primary-600 dark:text-primary-400">₹{total.toFixed(2)}</span>
+                  <span className="text-primary-600 dark:text-primary-400">
+                    ₹{total.toFixed(2)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -366,8 +466,10 @@ export default function InvoiceForm({
 
         {/* Additional Information */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Additional Information</h3>
-          
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Additional Information
+          </h3>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -375,7 +477,12 @@ export default function InvoiceForm({
               </label>
               <select
                 value={formData.paymentTerms}
-                onChange={(e) => setFormData(prev => ({ ...prev, paymentTerms: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    paymentTerms: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value="Net 15">Net 15</option>
@@ -392,7 +499,9 @@ export default function InvoiceForm({
               <textarea
                 rows={3}
                 value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
+                }
                 placeholder="Additional notes or terms..."
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
@@ -409,12 +518,12 @@ export default function InvoiceForm({
         size="lg"
       >
         <div className="space-y-4">
-          {customers.length === 0 ? (
+          {customers?.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No customers found. Please add customers first.
             </p>
           ) : (
-            customers.map((customer) => (
+            customers?.map((customer) => (
               <div
                 key={customer.id}
                 onClick={() => handleCustomerSelect(customer)}
@@ -422,9 +531,15 @@ export default function InvoiceForm({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">{customer.name}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{customer.email}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{customer.phone}</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      {customer.name}
+                    </h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {customer.email}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {customer.phone}
+                    </p>
                   </div>
                   <Button size="sm">Select</Button>
                 </div>
@@ -442,12 +557,12 @@ export default function InvoiceForm({
         size="lg"
       >
         <div className="space-y-4">
-          {products.length === 0 ? (
+          {products?.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No products found. Please add products first.
             </p>
           ) : (
-            products.map((product) => (
+            products?.map((product) => (
               <div
                 key={product.id}
                 onClick={() => handleAddItem(product)}
@@ -455,9 +570,15 @@ export default function InvoiceForm({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{product.description}</p>
-                    <p className="text-sm font-medium text-primary-600 dark:text-primary-400">₹{product.price}</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      {product.name}
+                    </h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {product.description}
+                    </p>
+                    <p className="text-sm font-medium text-primary-600 dark:text-primary-400">
+                      ₹{product.price}
+                    </p>
                   </div>
                   <Button size="sm">Add</Button>
                 </div>
@@ -467,5 +588,5 @@ export default function InvoiceForm({
         </div>
       </Modal>
     </div>
-  )
+  );
 }

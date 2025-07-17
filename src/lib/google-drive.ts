@@ -1,86 +1,122 @@
 // Google Drive API integration for file management
 export interface DriveFile {
-  id: string
-  name: string
-  mimeType: string
-  createdTime: string
-  modifiedTime: string
-  size?: string
-  webViewLink?: string
-  webContentLink?: string
+  id: string;
+  name: string;
+  mimeType: string;
+  createdTime: string;
+  modifiedTime: string;
+  size?: string;
+  webViewLink?: string;
+  webContentLink?: string;
 }
 
 export interface CreateFileOptions {
-  name: string
-  parents?: string[]
-  mimeType?: string
+  name: string;
+  parents?: string[];
+  mimeType?: string;
 }
 
 export class GoogleDriveService {
-  private accessToken: string
+  private accessToken: string;
 
   constructor(accessToken: string) {
-    this.accessToken = accessToken
+    this.accessToken = accessToken;
   }
 
   private get headers() {
     return {
-      'Authorization': `Bearer ${this.accessToken}`,
-      'Content-Type': 'application/json',
-    }
+      Authorization: `Bearer ${this.accessToken}`,
+      "Content-Type": "application/json",
+    };
   }
 
   // Create a new folder
   async createFolder(name: string, parentId?: string): Promise<DriveFile> {
     const metadata = {
       name,
-      mimeType: 'application/vnd.google-apps.folder',
-      ...(parentId && { parents: [parentId] })
-    }
+      mimeType: "application/vnd.google-apps.folder",
+      ...(parentId && { parents: [parentId] }),
+    };
 
-    const response = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
+    const response = await fetch("https://www.googleapis.com/drive/v3/files", {
+      method: "POST",
       headers: this.headers,
-      body: JSON.stringify(metadata)
-    })
+      body: JSON.stringify(metadata),
+    });
 
     if (!response.ok) {
-      throw new Error('Failed to create folder')
+      throw new Error("Failed to create folder");
     }
 
-    return response.json()
+    return response.json();
+  }
+
+  // Upload a binary file (image, pdf, etc.)
+  async uploadFile(
+    file: File | Blob,
+    options: CreateFileOptions
+  ): Promise<DriveFile> {
+    const metadata = {
+      name: options.name,
+      mimeType: options.mimeType || file.type,
+      ...(options.parents && { parents: options.parents }),
+    };
+
+    const form = new FormData();
+    form.append(
+      "metadata",
+      new Blob([JSON.stringify(metadata)], { type: "application/json" })
+    );
+    form.append("file", file);
+
+    const response = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink,webContentLink",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+        body: form,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to upload file");
+    }
+
+    return response.json();
   }
 
   // List files in a folder
   async listFiles(folderId?: string, mimeType?: string): Promise<DriveFile[]> {
-    let query = ''
-    const queryParts: string[] = []
+    let query = "";
+    const queryParts: string[] = [];
 
     if (folderId) {
-      queryParts.push(`'${folderId}' in parents`)
+      queryParts.push(`'${folderId}' in parents`);
     }
 
     if (mimeType) {
-      queryParts.push(`mimeType='${mimeType}'`)
+      queryParts.push(`mimeType='${mimeType}'`);
     }
 
     if (queryParts.length > 0) {
-      query = `?q=${encodeURIComponent(queryParts.join(' and '))}`
+      query = `?q=${encodeURIComponent(queryParts.join(" and "))}`;
     }
 
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files${query}&fields=files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink,webContentLink)`,
       {
-        headers: this.headers
+        headers: this.headers,
       }
-    )
+    );
 
     if (!response.ok) {
-      throw new Error('Failed to list files')
+      throw new Error("Failed to list files");
     }
 
-    const data = await response.json()
-    return data.files || []
+    const data = await response.json();
+    return data.files || [];
   }
 
   // Get file metadata
@@ -88,15 +124,15 @@ export class GoogleDriveService {
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,createdTime,modifiedTime,size,webViewLink,webContentLink`,
       {
-        headers: this.headers
+        headers: this.headers,
       }
-    )
+    );
 
     if (!response.ok) {
-      throw new Error('Failed to get file')
+      throw new Error("Failed to get file");
     }
 
-    return response.json()
+    return response.json();
   }
 
   // Delete a file
@@ -104,79 +140,87 @@ export class GoogleDriveService {
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}`,
       {
-        method: 'DELETE',
-        headers: this.headers
+        method: "DELETE",
+        headers: this.headers,
       }
-    )
+    );
 
     if (!response.ok) {
-      throw new Error('Failed to delete file')
+      throw new Error("Failed to delete file");
     }
   }
 
   // Share a file with specific permissions
-  async shareFile(fileId: string, email: string, role: 'reader' | 'writer' | 'owner' = 'reader'): Promise<void> {
+  async shareFile(
+    fileId: string,
+    email: string,
+    role: "reader" | "writer" | "owner" = "reader"
+  ): Promise<void> {
     const permission = {
-      type: 'user',
+      type: "user",
       role,
-      emailAddress: email
-    }
+      emailAddress: email,
+    };
 
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}/permissions`,
       {
-        method: 'POST',
+        method: "POST",
         headers: this.headers,
-        body: JSON.stringify(permission)
+        body: JSON.stringify(permission),
       }
-    )
+    );
 
     if (!response.ok) {
-      throw new Error('Failed to share file')
+      throw new Error("Failed to share file");
     }
   }
 
   // Make file public
   async makeFilePublic(fileId: string): Promise<void> {
     const permission = {
-      type: 'anyone',
-      role: 'reader'
-    }
+      type: "anyone",
+      role: "reader",
+    };
 
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}/permissions`,
       {
-        method: 'POST',
+        method: "POST",
         headers: this.headers,
-        body: JSON.stringify(permission)
+        body: JSON.stringify(permission),
       }
-    )
+    );
 
     if (!response.ok) {
-      throw new Error('Failed to make file public')
+      throw new Error("Failed to make file public");
     }
   }
 
   // Copy a file
-  async copyFile(fileId: string, name: string, parentId?: string): Promise<DriveFile> {
+  async copyFile(
+    fileId: string,
+    name: string,
+    parentId?: string
+  ): Promise<DriveFile> {
     const metadata = {
       name,
-      ...(parentId && { parents: [parentId] })
-    }
+      ...(parentId && { parents: [parentId] }),
+    };
 
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}/copy`,
       {
-        method: 'POST',
+        method: "POST",
         headers: this.headers,
-        body: JSON.stringify(metadata)
+        body: JSON.stringify(metadata),
       }
-    )
+    );
 
     if (!response.ok) {
-      throw new Error('Failed to copy file')
+      throw new Error("Failed to copy file");
     }
 
-    return response.json()
+    return response.json();
   }
 }

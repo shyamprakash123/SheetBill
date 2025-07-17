@@ -17,13 +17,10 @@ export interface CompanyDetails {
 }
 
 export interface UserProfile {
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
   phone: string;
-  avatar?: string;
-  role: string;
-  department: string;
+  profile_img?: string;
 }
 
 export interface GeneralSettings {
@@ -159,10 +156,9 @@ const defaultThermalPrintSettings: ThermalPrintSettings = {
   footerText: "",
 };
 
-const defaultSignatures: Signatures = {
-  authorizedSignatory1: "",
-  authorizedSignatory2: "",
-};
+const defaultSignatures: Signatures = [
+  { authorizedSignatory1: "", authorizedSignatory2: "" },
+];
 
 const defaultNotesTerms: NotesTerms = {
   invoiceNotes: "",

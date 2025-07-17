@@ -20,7 +20,8 @@ export class GoogleSheetsSupabaseService {
     const now = Date.now();
     const expiresAt = tokens.expires_at * 1000;
 
-    if (expiresAt && now <= expiresAt - 3600000) {
+    // Refresh if expired or will expire in next 5 minutes
+    if (expiresAt && now >= expiresAt - 5 * 60 * 1000) {
       console.log("Tokens", tokens);
       // Token is expired or will expire soon, refresh it
       const refreshedTokens = await supabaseGoogleAuth.refreshGoogleToken();
@@ -150,6 +151,9 @@ export class GoogleSheetsSupabaseService {
 
   // Initialize headers for all sheets
   private async initializeSheetHeaders(spreadsheetId: string): Promise<void> {
+    const now = new Date().toISOString();
+    const systemUser = "system";
+
     const headers = {
       Invoices: [
         "Invoice ID",
@@ -259,16 +263,95 @@ export class GoogleSheetsSupabaseService {
         "Reference",
         "Notes",
       ],
-      Settings: ["Key", "Value", "Description", "Updated At", "Updated By"],
+
+      // Initialize Settings sheet with structured key-value rows
+      Settings: [
+        ["Section", "companyDetails", "", now, systemUser],
+        ["name", "", "Company name", now, systemUser],
+        ["billing_address", "", "Company address", now, systemUser],
+        ["billing_city", "", "City", now, systemUser],
+        ["billing_state", "", "State", now, systemUser],
+        ["billing_pincode", "", "PIN Code", now, systemUser],
+        ["billing_country", "India", "Country", now, systemUser],
+        ["shipping_address", "", "Company address", now, systemUser],
+        ["shipping_city", "", "City", now, systemUser],
+        ["shipping_state", "", "State", now, systemUser],
+        ["shipping_pincode", "", "PIN Code", now, systemUser],
+        ["shipping_country", "India", "Country", now, systemUser],
+        ["gstin", "", "GSTIN", now, systemUser],
+        ["pan", "", "PAN number", now, systemUser],
+        ["email", "", "Company email", now, systemUser],
+        ["phone", "", "Company phone", now, systemUser],
+        ["website", "", "Company website", now, systemUser],
+        ["logo", "", "Company Logo", now, systemUser],
+
+        ["Section", "userProfile", "", now, systemUser],
+        ["name", "", "User full name", now, systemUser],
+        ["email", "", "User email address", now, systemUser],
+        ["phone", "", "User phone number", now, systemUser],
+        ["profile_img", "", "Profile image URL", now, systemUser],
+
+        ["Section", "preferences", "", now, systemUser],
+        ["roundoff", "", "Enable roundoff", now, systemUser],
+        ["defaultDueDays", "", "Default due days", now, systemUser],
+        ["invoice_prefix", "INV", "Prefix for Invoice", now, systemUser],
+        ["credit_prefix", "CR", "Prefix for Credit", now, systemUser],
+        ["purchase_prefix", "PUR", "Prefix for Purchase", now, systemUser],
+        ["expenses_prefix", "EXP", "Prefix for Expenses", now, systemUser],
+        ["quotations_prefix", "QUO", "Prefix for Quotations", now, systemUser],
+        ["discountType", "", "Discount type (percent/fixed)", now, systemUser],
+        ["emailSubject", "", "Default email subject", now, systemUser],
+        ["emailBody", "", "Default email body", now, systemUser],
+
+        ["Section", "thermalPrintSettings", "", now, systemUser],
+        ["terms", "", "Footer terms text", now, systemUser],
+        ["companyDetails", "", "Show company info", now, systemUser],
+        ["showItemDescription", "", "Show item descriptions", now, systemUser],
+        ["showHSN", "", "Show HSN codes", now, systemUser],
+        ["showCashReceived", "", "Show cash received", now, systemUser],
+        ["showLogo", "", "Show logo", now, systemUser],
+
+        ["Section", "signatures", "", now, systemUser],
+        ["name", "", "Signature label", now, systemUser],
+        ["image", "", "Signature image URL", now, systemUser],
+
+        ["Section", "notesTerms", "", now, systemUser],
+        ["invoice_notes", "", "Note or terms content", now, systemUser],
+        ["sales_return_notes", "", "Note or terms content", now, systemUser],
+        ["purchase_notes", "", "Note or terms content", now, systemUser],
+        ["purchase_return_notes", "", "Note or terms content", now, systemUser],
+        ["purchase_order_notes", "", "Note or terms content", now, systemUser],
+        ["quotation_notes", "", "Note or terms content", now, systemUser],
+        ["delivery_notes", "", "Note or terms content", now, systemUser],
+        ["proforma_notes", "", "Note or terms content", now, systemUser],
+
+        ["Section", "banks", "", now, systemUser],
+        ["bank_name", "", "Bank 1 name", now, systemUser],
+        ["bank_accountNumber", "", "Bank 1 account number", now, systemUser],
+        ["bank_ifscCode", "", "Bank 1 IFSC code", now, systemUser],
+        ["bank_branch", "", "Bank 1 branch", now, systemUser],
+        ["bank_accountHolderName", "", "Bank account holder", now, systemUser],
+        ["bank_upi", "", "Bank UPI", now, systemUser],
+        ["bank_openingBalance", "", "Bank Opening Banlance", now, systemUser],
+      ],
     };
 
     const requests = [];
-    for (const [sheetName, headerRow] of Object.entries(headers)) {
-      const endColumn = String.fromCharCode(64 + headerRow.length);
-      requests.push({
-        range: `${sheetName}!A1:${endColumn}1`,
-        values: [headerRow],
-      });
+
+    for (const [sheetName, headerOrRows] of Object.entries(headers)) {
+      if (sheetName === "Settings") {
+        requests.push({
+          range: `${sheetName}!A1:E${headerOrRows.length}`,
+          values: headerOrRows as string[][],
+        });
+      } else {
+        const headerRow = headerOrRows as string[];
+        const endColumn = String.fromCharCode(64 + headerRow.length);
+        requests.push({
+          range: `${sheetName}!A1:${endColumn}1`,
+          values: [headerRow], // Wrap single row in an array to make it 2D
+        });
+      }
     }
 
     await this.batchUpdateSheetData(spreadsheetId, requests);
