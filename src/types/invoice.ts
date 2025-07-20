@@ -1,16 +1,16 @@
-export type DocumentType = 
-  | 'sales-invoice'
-  | 'credit-note'
-  | 'debit-note'
-  | 'purchase'
-  | 'quotation'
-  | 'sales-return'
-  | 'purchase-return'
-  | 'purchase-order'
-  | 'delivery-challan'
-  | 'proforma-invoice';
+export type DocumentType =
+  | "sales-invoice"
+  | "credit-note"
+  | "debit-note"
+  | "purchase"
+  | "quotation"
+  | "sales-return"
+  | "purchase-return"
+  | "purchase-order"
+  | "delivery-challan"
+  | "proforma-invoice";
 
-export type InvoiceType = 'regular' | 'bill-of-supply';
+export type InvoiceType = "regular" | "bill-of-supply";
 
 export interface Address {
   id: string;
@@ -58,7 +58,7 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   discount: {
-    type: 'percentage' | 'amount';
+    type: "percentage" | "amount";
     value: number;
   };
   taxAmount: number;
@@ -80,6 +80,7 @@ export interface Signature {
 }
 
 export interface InvoiceFormData {
+  paymentModes: PaymentMode[];
   documentType: DocumentType;
   invoiceType: InvoiceType;
   invoiceNumber: string;
@@ -94,7 +95,7 @@ export interface InvoiceFormData {
   reference?: string;
   items: InvoiceItem[];
   globalDiscount: {
-    type: 'percentage' | 'amount';
+    type: "percentage" | "amount";
     value: number;
   };
   additionalCharges: Array<{
@@ -138,7 +139,10 @@ export interface InvoiceFormProps {
   signatures?: Signature[];
   noteTemplates?: string[];
   onChange?: (data: InvoiceFormData) => void;
-  onSubmit?: (data: InvoiceFormData, action: 'draft' | 'save' | 'save-print') => void;
+  onSubmit?: (
+    data: InvoiceFormData,
+    action: "draft" | "save" | "save-print"
+  ) => void;
   onAddCustomer?: () => void;
   onAddVendor?: () => void;
   onAddProduct?: () => void;

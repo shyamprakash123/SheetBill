@@ -3,6 +3,7 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   CubeIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import Button from "../ui/Button";
@@ -17,6 +18,7 @@ interface ProductSearchProps {
   onCategoryChange: (category: string) => void;
   onAddProduct: (product: any, quantity?: number) => void;
   onAddNewProduct?: () => void;
+  error?: string;
 }
 
 export default function ProductSearch({
@@ -27,6 +29,7 @@ export default function ProductSearch({
   onCategoryChange,
   onAddProduct,
   onAddNewProduct,
+  error,
 }: ProductSearchProps) {
   const categories = ["all", ...new Set(products.map((p) => p.category))];
   const [quantity, setQuantity] = useState(null);
@@ -47,6 +50,12 @@ export default function ProductSearch({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
           Add Products/Services
+          {error && (
+            <span className="text-red-500 text-xs ml-2">
+              <ExclamationTriangleIcon className="h-3 w-3 inline mr-1" />
+              {error}
+            </span>
+          )}
         </h2>
       </div>
 

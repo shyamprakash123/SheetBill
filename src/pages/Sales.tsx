@@ -35,23 +35,25 @@ export default function Sales() {
         await fetchInvoices();
       } catch (error) {
         console.error("Error initializing sales data:", error);
+        toast.error("Failed to load invoices");
       }
     };
     initData();
-  }, []);
+  }, [fetchInvoices]);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
       invoice.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.id?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      filterStatus === "all" || invoice.status === filterStatus;
+      filterStatus === "all" ||
+      invoice.status?.toLowerCase() === filterStatus.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
   const handleEdit = (invoice) => {
-    setEditingInvoice(invoice);
-    setIsModalOpen(true);
+    // Navigate to edit page instead of modal
+    navigate(`/app/edit/sales-invoice/${invoice.id}`);
   };
 
   const handleDelete = async (invoiceId) => {
@@ -59,8 +61,11 @@ export default function Sales() {
       try {
         await deleteInvoice(invoiceId);
         toast.success("Invoice deleted successfully");
+        // Refresh the invoices list
+        await fetchInvoices();
       } catch (error) {
         toast.error("Failed to delete invoice");
+        console.error("Delete error:", error);
       }
     }
   };
@@ -78,16 +83,27 @@ export default function Sales() {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-IN");
+    if (!dateString) return "N/A";
+    try {
+      return new Date(dateString).toLocaleDateString("en-IN");
+    } catch (error) {
+      return "Invalid Date";
+    }
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
+    const statusLower = status?.toLowerCase();
+    switch (statusLower) {
       case "paid":
         return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
       case "pending":
+      case "sent":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
       case "overdue":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+      case "draft":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
+      case "cancelled":
         return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
@@ -95,19 +111,24 @@ export default function Sales() {
   };
 
   const getTotalRevenue = () => {
-    return invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+    return invoices
+      .filter((invoice) => invoice.status?.toLowerCase() === "paid")
+      .reduce((sum, invoice) => sum + (invoice.total || 0), 0);
   };
 
   const getPendingAmount = () => {
     return invoices
-      .filter(
-        (invoice) => invoice.status === "Pending" || invoice.status === "Sent"
-      )
-      .reduce((sum, invoice) => sum + invoice.total, 0);
+      .filter((invoice) => {
+        const status = invoice.status?.toLowerCase();
+        return status === "pending" || status === "sent";
+      })
+      .reduce((sum, invoice) => sum + (invoice.total || 0), 0);
   };
 
   const getInvoiceCount = () => {
-    return invoices.length;
+    return invoices.filter(
+      (invoice) => invoice.status?.toLowerCase() !== "cancelled"
+    ).length;
   };
 
   const stats = [
@@ -214,9 +235,12 @@ export default function Sales() {
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="all">All Status</option>
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
               <option value="pending">Pending</option>
               <option value="paid">Paid</option>
               <option value="overdue">Overdue</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
 
@@ -299,23 +323,26 @@ export default function Sales() {
                             {invoice.id}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                            Due: {formatDate(invoice.dueDate)}
+                            Due:{" "}
+                            {invoice.dueDate
+                              ? formatDate(invoice.dueDate)
+                              : "No due date"}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {invoice.customerName}
+                      {invoice.customer.value || "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(invoice.date)}
+                      {formatDate(invoice.invoiceDate || invoice.date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(invoice.total)}
+                        {formatCurrency(invoice.total || 0)}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        +{formatCurrency(invoice.taxAmount)} tax
+                        +{formatCurrency(invoice.taxAmount || 0)} tax
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -324,27 +351,34 @@ export default function Sales() {
                           invoice.status
                         )}`}
                       >
-                        {invoice.status?.charAt(0).toUpperCase() +
-                          invoice.status?.slice(1)}
+                        {invoice.status
+                          ? invoice.status.charAt(0).toUpperCase() +
+                            invoice.status.slice(1)
+                          : "Unknown"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => handleEdit(invoice)}
+                          onClick={() =>
+                            navigate(`/app/view/invoice/${invoice.id}`)
+                          }
                           className="p-1 text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
+                          title="View Invoice"
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleEdit(invoice)}
                           className="p-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+                          title="Edit Invoice"
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(invoice.id)}
                           className="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                          title="Delete Invoice"
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>

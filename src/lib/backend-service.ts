@@ -135,62 +135,43 @@ export class InvoiceService {
     invoiceData: Omit<Invoice, "id" | "createdAt" | "updatedAt">
   ): Promise<Invoice> {
     const invoice: Invoice = {
-      id: `${invoiceData.invoicePrefix}${Date.now()}`,
+      id: `${invoiceData.invoicePrefix}${invoiceData.invoiceNumber}`,
       ...invoiceData,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     const row = [
-      // Basic Info
       invoice.id,
+      invoice.customerId || "",
+      JSON.stringify(invoice.customer),
+      invoice.invoiceDate,
+      invoice.dueDate || "",
+      invoice.subtotal || 0,
+      invoice.taxAmount || 0,
+      invoice.total || 0,
+      invoice.status,
+      JSON.stringify(invoice.items || []),
+      invoice.paymentNotes || "",
       invoice.documentType,
       invoice.invoiceType,
       invoice.invoiceNumber,
       invoice.invoicePrefix,
-      invoice.invoiceDate,
-      invoice.dueDate || "",
-      invoice.supplierInvoiceDate || "",
-      invoice.supplierInvoiceNumber || "",
-      invoice.reference || "",
-
-      // Address & Parties
-      JSON.stringify(invoice.dispatchFromAddress || {}),
-      JSON.stringify(invoice.customer || {}),
-      JSON.stringify(invoice.vendor || {}),
-
-      // Items & Pricing
-      JSON.stringify(invoice.items),
-      JSON.stringify(invoice.globalDiscount),
+      JSON.stringify(invoice.bankAccount),
       JSON.stringify(invoice.additionalCharges),
-
-      // Tax & Deductions
+      JSON.stringify(invoice.paymentModes),
+      JSON.stringify(invoice.globalDiscount),
+      JSON.stringify(invoice.notes),
       JSON.stringify(invoice.tds),
       JSON.stringify(invoice.tdsUnderGst),
       JSON.stringify(invoice.tcs),
       invoice.extraDiscount,
-      invoice.roundOff,
-
-      // Payment & Bank
-      JSON.stringify(invoice.bankAccount || {}),
       invoice.markedAsPaid,
-      invoice.paymentNotes || "",
-
-      // Additional Info
-      invoice.notes,
-      JSON.stringify(invoice.signature || {}),
-      JSON.stringify(
-        invoice.attachments?.map((file) => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          // Note: File content would need to be handled separately
-          // as Google Sheets can't store binary data directly
-        })) || []
-      ),
-
-      // System Fields
-      invoice.status,
+      JSON.stringify(invoice.attachments),
+      JSON.stringify(invoice.dispatchFromAddress),
+      JSON.stringify(invoice.shipping),
+      JSON.stringify(invoice.signature),
+      invoice.reference,
       invoice.createdAt,
       invoice.updatedAt,
       invoice.pdfUrl || "",
@@ -206,34 +187,53 @@ export class InvoiceService {
     try {
       const data = await this.sheetsService.getSheetData(
         this.spreadsheetId,
-        "Invoices!A2:M"
+        "Invoices!A2:AG"
       );
       if (!data || data.length === 0) {
         return [];
       }
 
-      // const [headers, ...rows] = data
-      // if (!rows || rows.length === 0) {
-      //   return []
-      // }
-
       return data
         .map((row) => ({
           id: row[0] || "",
           customerId: row[1] || "",
-          customerName: row[2] || "",
-          date: row[3] || "",
+          customer: JSON.parse(row[2]) || "",
+          invoiceDate: row[3] || "",
+          date: row[3] || "", // Keep for backward compatibility
           dueDate: row[4] || "",
           subtotal: parseFloat(row[5]) || 0,
           taxAmount: parseFloat(row[6]) || 0,
           total: parseFloat(row[7]) || 0,
           status: (row[8] as Invoice["status"]) || "Draft",
-          notes: row[9] || "",
-          items: row[10] ? JSON.parse(row[10]) : [],
-          paymentTerms: row[11] || "",
-          createdAt: row[12] || "",
-          updatedAt: row[13] || "",
-          pdfUrl: row[14] || "",
+          items: JSON.parse(row[9]) || "",
+          paymentNotes: row[10] || "",
+          documentType: row[11] || "",
+          invoiceType: row[12] || "",
+          invoiceNumber: row[13] || "",
+          invoicePrefix: row[14] || "",
+          bankAccount: JSON.parse(row[15]) || null,
+          additionalCharges: JSON.parse(row[16]) || null,
+          paymentModes: JSON.parse(row[17]) || [],
+          globalDiscount: JSON.parse(row[18]) || {
+            type: "percentage",
+            value: 0,
+          },
+          tds: JSON.parse(row[19]) || { enabled: false, rate: 0, amount: 0 },
+          tdsUnderGst: JSON.parse(row[20]) || {
+            enabled: false,
+            rate: 0,
+            amount: 0,
+          },
+          tcs: JSON.parse(row[21]) || { enabled: false, rate: 0, amount: 0 },
+          extraDiscount: row[22] || 0,
+          markedAsPaid: row[23] || false,
+          attachments: JSON.parse(row[24]) || [],
+          dispatchFromAddress: JSON.parse(row[25]) || null,
+          shipping: JSON.parse(row[26]) || null,
+          reference: row[27] || null,
+          createdAt: row[28] || "",
+          updatedAt: row[29] || "",
+          pdfUrl: row[30] || "",
         }))
         .filter((invoice) => invoice.id); // Filter out empty rows
     } catch (error) {
@@ -268,13 +268,13 @@ export class InvoiceService {
       updatedInvoice.id,
       updatedInvoice.customerId,
       updatedInvoice.customerName,
-      updatedInvoice.date,
+      updatedInvoice.invoiceDate || updatedInvoice.date,
       updatedInvoice.dueDate,
       updatedInvoice.subtotal,
       updatedInvoice.taxAmount,
       updatedInvoice.total,
       updatedInvoice.status,
-      updatedInvoice.notes || "",
+      updatedInvoice.notes?.note || updatedInvoice.notes || "",
       JSON.stringify(updatedInvoice.items),
       updatedInvoice.paymentTerms || "",
       updatedInvoice.createdAt,

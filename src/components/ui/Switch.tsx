@@ -115,7 +115,6 @@ const Switch: React.FC<SwitchProps> = ({
   if (label || description) {
     return (
       <div className="flex items-start space-x-3">
-        {switchElement}
         <div className="flex-1 min-w-0">
           {label && (
             <label
@@ -139,6 +138,7 @@ const Switch: React.FC<SwitchProps> = ({
             </p>
           )}
         </div>
+        {switchElement}
       </div>
     );
   }

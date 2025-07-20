@@ -18,7 +18,6 @@ export default function NotesTermsSection() {
         if (settings) return;
         const fetchedSettings = await fetchAllSettings();
         setFormData(fetchedSettings.notesTerms);
-        console.log("Settings", settings);
       } catch (error) {
         console.error("Error initializing sales data:", error);
       }
@@ -33,7 +32,8 @@ export default function NotesTermsSection() {
   }, [formData, settings.notesTerms]);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (value.length <= 1000)
+      setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {
@@ -98,12 +98,23 @@ export default function NotesTermsSection() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 capitalize">
                 {formatLabel(section)}
               </h3>
-              <textarea
-                rows={3}
-                value={formData[section] || ""}
-                onChange={(e) => handleInputChange(section, e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              ></textarea>
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <textarea
+                  value={formData[section] || ""}
+                  onChange={(e) => handleInputChange(section, e.target.value)}
+                  placeholder="Add notes, terms & conditions, or special instructions..."
+                  rows={4}
+                  maxLength={1000}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+                <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span>
+                    Add payment terms, delivery instructions, or other important
+                    information
+                  </span>
+                  <span>{formData[section].length}/1000</span>
+                </div>
+              </div>
             </Card>
           ))}
         </motion.div>

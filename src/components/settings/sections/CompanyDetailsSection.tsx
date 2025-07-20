@@ -99,7 +99,6 @@ export default function CompanyDetailsSection() {
         if (settings) return;
         const fetchedSettings = await fetchAllSettings();
         setFormData(fetchedSettings.companyDetails);
-        console.log("Settings", settings);
       } catch (error) {
         console.error("Error initializing sales data:", error);
       }
@@ -128,7 +127,6 @@ export default function CompanyDetailsSection() {
       await updateCompanyDetails(formData);
       toast.success("Company details saved successfully!");
     } catch (error) {
-      console.log(error);
       toast.error("Failed to save company details");
     }
   };
@@ -175,7 +173,6 @@ export default function CompanyDetailsSection() {
       await drive.makeFilePublic(uploadedFile.id);
 
       const publicLink = uploadedFile.webViewLink;
-      console.log("Logo Link", publicLink);
 
       if (publicLink) handleInputChange("logo", publicLink);
 

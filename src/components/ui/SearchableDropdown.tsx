@@ -20,6 +20,7 @@ interface SearchableDropdownProps {
   disabled?: boolean;
   onRemoveOption?: () => void;
   isCustomValue?: boolean;
+  noSearch?: boolean;
 }
 
 export default function SearchableDropdown({
@@ -35,6 +36,7 @@ export default function SearchableDropdown({
   disabled = false,
   onRemoveOption,
   isCustomValue,
+  noSearch,
 }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -148,6 +150,11 @@ export default function SearchableDropdown({
             }
           >
             {value ? value?.value : value?.[displayKey] || placeholder}
+            {value?.others && value?.others.isDefault && (
+              <span className="bg-teal-500 ml-4 text-white text-xs font-semibold rounded-full px-2 py-1">
+                Default
+              </span>
+            )}
           </span>
         </div>
 
@@ -183,23 +190,25 @@ export default function SearchableDropdown({
             className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-hidden"
           >
             {/* Search Input */}
-            <div className="p-2 border-b border-gray-200 dark:border-gray-600">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setHighlightedIndex(-1);
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Search..."
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+            {!noSearch && (
+              <div className="p-2 border-b border-gray-200 dark:border-gray-600">
+                <div className="relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setHighlightedIndex(-1);
+                    }}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Search..."
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Options List */}
             <div className="max-h-48 overflow-y-auto">
@@ -231,6 +240,16 @@ export default function SearchableDropdown({
                         {option.value.split("\n").map((line, i) => (
                           <div key={i}>
                             {line}
+                            {option.others && option.others.isDefault && (
+                              <span className="bg-teal-500 ml-4 text-white text-xs font-semibold rounded-full px-2 py-1">
+                                Default
+                              </span>
+                            )}
+                            {option && option?.isDefault && (
+                              <span className="bg-teal-500 ml-4 text-white text-xs font-semibold rounded-full px-2 py-1">
+                                Default
+                              </span>
+                            )}
                             {option.description && (
                               <span className="text-gray-500 font-sans font-semibold">
                                 {"  "}

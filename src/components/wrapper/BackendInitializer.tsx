@@ -8,7 +8,8 @@ const BackendInitializer = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [showGoogleAuth, setShowGoogleAuth] = useState(false);
   const { getGoogleTokens, fetchProfile } = useAuthStore.getState();
-  const { initializeService, fetchProducts } = useInvoiceStore();
+  const { initializeService, fetchProducts, fetchAllSettings } =
+    useInvoiceStore();
 
   useEffect(() => {
     const initData = async () => {
@@ -18,13 +19,13 @@ const BackendInitializer = ({ children }: { children: React.ReactNode }) => {
         if (!tokens || !tokens.access_token) {
           const google_tokens = await fetchProfile();
           if (!google_tokens) {
-            console.log("No tokens");
             setShowGoogleAuth(true);
             return;
           }
         }
         await initializeService();
         await fetchProducts();
+        await fetchAllSettings();
       } catch (error: any) {
         console.error("Error initializing dashboard:", error);
 

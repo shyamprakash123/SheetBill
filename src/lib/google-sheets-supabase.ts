@@ -22,7 +22,6 @@ export class GoogleSheetsSupabaseService {
 
     // Refresh if expired or will expire in next 5 minutes
     if (expiresAt && now >= expiresAt - 5 * 60 * 1000) {
-      console.log("Tokens", tokens);
       // Token is expired or will expire soon, refresh it
       const refreshedTokens = await supabaseGoogleAuth.refreshGoogleToken();
       if (!refreshedTokens) {
@@ -300,6 +299,7 @@ export class GoogleSheetsSupabaseService {
         ["expenses_prefix", "EXP", "Prefix for Expenses", now, systemUser],
         ["quotations_prefix", "QUO", "Prefix for Quotations", now, systemUser],
         ["discountType", "", "Discount type (percent/fixed)", now, systemUser],
+        ["additionalCharges", "", "Additional Charges", now, systemUser],
         ["emailSubject", "", "Default email subject", now, systemUser],
         ["emailBody", "", "Default email body", now, systemUser],
 
@@ -326,13 +326,7 @@ export class GoogleSheetsSupabaseService {
         ["proforma_notes", "", "Note or terms content", now, systemUser],
 
         ["Section", "banks", "", now, systemUser],
-        ["bank_name", "", "Bank 1 name", now, systemUser],
-        ["bank_accountNumber", "", "Bank 1 account number", now, systemUser],
-        ["bank_ifscCode", "", "Bank 1 IFSC code", now, systemUser],
-        ["bank_branch", "", "Bank 1 branch", now, systemUser],
-        ["bank_accountHolderName", "", "Bank account holder", now, systemUser],
-        ["bank_upi", "", "Bank UPI", now, systemUser],
-        ["bank_openingBalance", "", "Bank Opening Banlance", now, systemUser],
+        ["banks", "", "Banks", now, systemUser],
       ],
     };
 

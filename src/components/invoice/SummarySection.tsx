@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { CalculatorIcon } from "@heroicons/react/24/outline";
 import SearchableDropdown from "../ui/SearchableDropdown";
 import Switch from "../ui/Switch";
@@ -28,7 +28,6 @@ interface SummarySectionProps {
     description?: string;
   };
   extraDiscount: number;
-  roundOff: boolean;
   onTdsChange: (tds: {
     enabled: boolean;
     rate: number;
@@ -49,7 +48,6 @@ interface SummarySectionProps {
     description?: string;
   }) => void;
   onExtraDiscountChange: (discount: number) => void;
-  onRoundOffChange: (roundOff: boolean) => void;
 }
 
 const TDS_OPTIONS = [
@@ -254,10 +252,10 @@ export default function SummarySection({
   onTdsUnderGstChange,
   onTcsChange,
   onExtraDiscountChange,
-  onRoundOffChange,
 }: SummarySectionProps) {
   const [tdsApplyOn, setTdsApplyOn] = React.useState<"total" | "net">("net");
   const [tcsApplyOn, setTcsApplyOn] = React.useState<"total" | "net">("net");
+  const [roundOffOption, setRoundOffOption] = useState<boolean>(roundOff);
 
   const calculateTdsAmount = (rate: number) => {
     const baseAmount = tdsApplyOn === "total" ? totals.total : totals.subtotal;
@@ -510,7 +508,7 @@ export default function SummarySection({
         </div>
 
         {/* Professional Invoice Summary */}
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+        <div className="h-min bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Invoice Summary
@@ -560,6 +558,32 @@ export default function SummarySection({
                   </span>
                 </div>
               )}
+
+              {/* Round Off */}
+              <div className="flex justify-between items-center py-1">
+                <div className="flex items-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mr-2">
+                    Round Off
+                  </p>
+                  <Switch
+                    checked={roundOffOption}
+                    onChange={(e) => setRoundOffOption(e)}
+                    size="lg"
+                    color="blue"
+                  />
+                </div>
+
+                {roundOffOption ? (
+                  <span className="text-sm font-medium text-teal-900 dark:text-teal-400">
+                    {totals.roundOffAmount >= 0 ? "+" : ""}₹
+                    {totals.roundOffAmount.toFixed(2)}
+                  </span>
+                ) : (
+                  <span className="text-sm font-medium  text-teal-900 dark:text-teal-400">
+                    ₹0.00
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Deductions & Collections */}
@@ -616,32 +640,6 @@ export default function SummarySection({
                       </span>
                     </div>
                   )}
-
-                  {/* Round Off */}
-                  <div className="flex justify-between items-center py-1">
-                    <div className="flex items-center">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mr-2">
-                        Round Off
-                      </p>
-                      <Switch
-                        checked={roundOff}
-                        onChange={(e) => onRoundOffChange(e)}
-                        size="lg"
-                        color="blue"
-                      />
-                    </div>
-
-                    {roundOff ? (
-                      <span className="text-sm font-medium text-teal-900 dark:text-teal-400">
-                        {totals.roundOffAmount >= 0 ? "+" : ""}₹
-                        {totals.roundOffAmount.toFixed(2)}
-                      </span>
-                    ) : (
-                      <span className="text-sm font-medium  text-teal-900 dark:text-teal-400">
-                        ₹0.00
-                      </span>
-                    )}
-                  </div>
 
                   {/* Round Off */}
                   {/* <div className="flex items-center space-x-3">

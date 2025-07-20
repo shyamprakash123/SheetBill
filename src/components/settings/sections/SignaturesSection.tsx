@@ -69,7 +69,6 @@ export default function SignaturesSection() {
       await drive.makeFilePublic(uploadedFile.id);
 
       const publicLink = uploadedFile.webViewLink;
-      console.log("Logo Link", publicLink);
 
       if (publicLink) handleInputChange("image", publicLink);
 

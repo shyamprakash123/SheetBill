@@ -3,8 +3,9 @@ import {
   TrashIcon,
   PlusIcon,
   CurrencyDollarIcon,
+  CurrencyRupeeIcon,
 } from "@heroicons/react/24/outline";
-import { GripVertical, Move } from "lucide-react";
+import { GripVertical, Move, X } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -27,6 +28,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { InvoiceItem } from "../../types/invoice";
 import Button from "../ui/Button";
 import Modal from "../ui/Modal";
+import SearchableDropdown from "../ui/SearchableDropdown";
 
 interface ItemTableProps {
   items: InvoiceItem[];
@@ -42,8 +44,10 @@ interface ItemTableProps {
   onAdditionalChargesChange: (
     charges: Array<{ id: string; name: string; amount: number }>
   ) => void;
+  additionalChargesOptions: Array<{ id: string; name: string; price: number }>;
   showAdditionalCharges: boolean;
   onToggleAdditionalCharges: (show: boolean) => void;
+  errors?: Record<string, string>;
 }
 
 interface SortableItemProps {
@@ -52,6 +56,7 @@ interface SortableItemProps {
   onUpdateItem: (itemId: string, updates: Partial<InvoiceItem>) => void;
   onRemoveItem: (itemId: string) => void;
   isDragOverlay?: boolean;
+  errors?: Record<string, string>;
 }
 
 // Lightweight drag overlay component
@@ -79,6 +84,7 @@ function SortableItem({
   onUpdateItem,
   onRemoveItem,
   isDragOverlay = false,
+  errors = {},
 }: SortableItemProps) {
   const {
     attributes,
@@ -174,18 +180,29 @@ function SortableItem({
           }
           className="w-full px-2 py-1 text-sm text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         /> */}
-        <input
-          type="text"
-          value={item.quantity}
-          min={1}
-          onChange={(e) =>
-            onUpdateItem(item.id, {
-              quantity: parseInt(e.target.value) || null,
-            })
-          }
-          placeholder="Qty"
-          className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div>
+          <input
+            type="text"
+            value={item.quantity}
+            min={1}
+            onChange={(e) =>
+              onUpdateItem(item.id, {
+                quantity: parseInt(e.target.value) || null,
+              })
+            }
+            placeholder="Qty"
+            className={`w-20 px-2 py-1 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 ${
+              errors[`item_${index}_quantity`]
+                ? "border-red-300 dark:border-red-600 focus:ring-red-500"
+                : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+            }`}
+          />
+          {errors[`item_${index}_quantity`] && (
+            <div className="text-xs text-red-500 mt-1">
+              {errors[`item_${index}_quantity`]}
+            </div>
+          )}
+        </div>
       </td>
       <td className="py-3 px-2">
         {/* <input
@@ -199,18 +216,29 @@ function SortableItem({
           }
           className="w-full px-2 py-1 text-sm text-right border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         /> */}
-        <input
-          type="text"
-          value={item.unitPrice}
-          min={0}
-          onChange={(e) =>
-            onUpdateItem(item.id, {
-              unitPrice: parseFloat(e.target.value) || null,
-            })
-          }
-          placeholder="Qty"
-          className=" px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div>
+          <input
+            type="text"
+            value={item.unitPrice}
+            min={0}
+            onChange={(e) =>
+              onUpdateItem(item.id, {
+                unitPrice: parseFloat(e.target.value) || null,
+              })
+            }
+            placeholder="Price"
+            className={`px-2 py-1 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 ${
+              errors[`item_${index}_price`]
+                ? "border-red-300 dark:border-red-600 focus:ring-red-500"
+                : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+            }`}
+          />
+          {errors[`item_${index}_price`] && (
+            <div className="text-xs text-red-500 mt-1">
+              {errors[`item_${index}_price`]}
+            </div>
+          )}
+        </div>
       </td>
       <td className="py-3 px-2">
         <div className="flex items-center space-x-1">
@@ -287,12 +315,15 @@ export default function ItemTable({
   onGlobalDiscountChange,
   additionalCharges,
   onAdditionalChargesChange,
+  additionalChargesOptions,
   showAdditionalCharges,
   onToggleAdditionalCharges,
+  errors = {},
 }: ItemTableProps) {
   const [newCharge, setNewCharge] = useState({ name: "", amount: 0 });
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedItem, setDraggedItem] = useState<InvoiceItem | null>(null);
+  const [isCustomCharge, setIsCutomCharge] = useState<boolean>(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -330,7 +361,11 @@ export default function ItemTable({
     if (newCharge.name && newCharge.amount > 0) {
       onAdditionalChargesChange([
         ...additionalCharges,
-        { id: `charge-${Date.now()}`, ...newCharge },
+        {
+          id: `charge-${Date.now()}`,
+          value: newCharge.name,
+          price: newCharge.amount,
+        },
       ]);
       setNewCharge({ name: "", amount: 0 });
     }
@@ -348,7 +383,7 @@ export default function ItemTable({
   );
 
   const totalAdditionalCharges = additionalCharges.reduce(
-    (sum, charge) => sum + charge.amount,
+    (sum, charge) => sum + charge.price,
     0
   );
 
@@ -374,7 +409,7 @@ export default function ItemTable({
           >
             <PlusIcon className="h-4 w-4 mr-2" />
             Additional Charges
-            {additionalCharges.length > 0 && (
+            {additionalCharges?.length > 0 && (
               <span className="ml-2 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">
                 {additionalCharges.length}
               </span>
@@ -452,6 +487,7 @@ export default function ItemTable({
                         index={index}
                         onUpdateItem={onUpdateItem}
                         onRemoveItem={onRemoveItem}
+                        errors={errors}
                       />
                     ))}
                   </SortableContext>
@@ -493,12 +529,12 @@ export default function ItemTable({
                     <div className="flex items-center space-x-3">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {charge.name}
+                        {charge.value}
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                        ₹{charge.amount.toFixed(2)}
+                        ₹{charge.price.toFixed(2)}
                       </span>
                       <button
                         onClick={() => removeAdditionalCharge(charge.id)}
@@ -583,61 +619,88 @@ export default function ItemTable({
       >
         <div className="space-y-6">
           {/* Add New Charge */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
-              <PlusIcon className="h-5 w-5 mr-2 text-blue-600" />
-              Add New Charge
-            </h4>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Charge Name
-                </label>
-                <input
-                  type="text"
-                  value={newCharge.name}
-                  onChange={(e) =>
-                    setNewCharge({ ...newCharge, name: e.target.value })
-                  }
-                  placeholder="e.g., Shipping, Handling, Insurance"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+          {isCustomCharge ? (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+              <div className="flex mb-3">
+                <h4 className="flex-1 font-semibold text-gray-900 dark:text-white  flex items-center">
+                  Add New Charge
+                </h4>
+                <button onClick={() => setIsCutomCharge(false)}>
+                  <X className="h-6 w-6 mr-2 text-red-600 hover:bg-red-100 rounded-md" />
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={newCharge.amount}
-                  onChange={(e) =>
-                    setNewCharge({
-                      ...newCharge,
-                      amount: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Charge Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newCharge.name}
+                    onChange={(e) =>
+                      setNewCharge({ ...newCharge, name: e.target.value })
+                    }
+                    placeholder="e.g., Shipping, Handling, Insurance"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={newCharge.amount}
+                    onChange={(e) =>
+                      setNewCharge({
+                        ...newCharge,
+                        amount: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <Button
+                  onClick={addAdditionalCharge}
+                  className="w-full"
+                  disabled={!newCharge.name || newCharge.amount <= 0}
+                >
+                  Add Charge
+                </Button>
               </div>
-              <Button
-                onClick={addAdditionalCharge}
-                className="w-full"
-                disabled={!newCharge.name || newCharge.amount <= 0}
-              >
-                Add Charge
-              </Button>
             </div>
-          </div>
+          ) : (
+            <div className="h-full">
+              <SearchableDropdown
+                options={additionalChargesOptions}
+                value={null}
+                onChange={(change) => {
+                  onAdditionalChargesChange([
+                    ...additionalCharges,
+                    {
+                      id: `charge-${Date.now()}`,
+                      value: change.value,
+                      price: change.price,
+                    },
+                  ]);
+                }}
+                placeholder="Additional Charges"
+                displayKey="adc"
+                onAddNew={() => setIsCutomCharge(true)}
+                addNewLabel="Custom Charge"
+              />
+            </div>
+          )}
 
           {/* Existing Charges */}
           {additionalCharges.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold text-gray-900 dark:text-white flex items-center">
-                  <CurrencyDollarIcon className="h-5 w-5 mr-2 text-green-600" />
+                  <CurrencyRupeeIcon className="h-5 w-5 mr-2 text-green-600" />
                   Current Additional Charges
                 </h4>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -661,16 +724,16 @@ export default function ItemTable({
                       </div>
                       <div>
                         <h5 className="font-medium text-gray-900 dark:text-white">
-                          {charge.name}
+                          {charge.value}
                         </h5>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {/* <p className="text-sm text-gray-500 dark:text-gray-400">
                           ID: {charge.id}
-                        </p>
+                        </p> */}
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
                       <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                        ₹{charge.amount.toFixed(2)}
+                        ₹{charge.price.toFixed(2)}
                       </span>
                       <button
                         onClick={() => removeAdditionalCharge(charge.id)}

@@ -17,6 +17,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   ChevronLeftIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import {
   InvoiceFormProps,
@@ -42,8 +43,13 @@ import { useInvoiceStore } from "../../store/invoice";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import clsx from "clsx";
 import { ChevronDown, Truck } from "lucide-react";
-import { CompanyDetails, Customer } from "../../lib/backend-service";
+import {
+  BankDetails,
+  CompanyDetails,
+  Customer,
+} from "../../lib/backend-service";
 import DatePicker from "../ui/DatePicker";
+import toast from "react-hot-toast";
 
 const documentTypeLabels: Record<DocumentType, string> = {
   "sales-invoice": "Sales Invoice",
@@ -51,6 +57,32 @@ const documentTypeLabels: Record<DocumentType, string> = {
   "debit-note": "Debit Note",
   purchase: "Purchase Invoice",
   quotation: "Quotation",
+  "sales-return": "Sales Return",
+  "purchase-return": "Purchase Return",
+  "purchase-order": "Purchase Order",
+  "delivery-challan": "Delivery Challan",
+  "proforma-invoice": "Proforma Invoice",
+};
+
+const documentNotesType: Record<DocumentType, string> = {
+  "sales-invoice": "invoice_notes",
+  "credit-note": "Credit Note",
+  "debit-note": "Debit Note",
+  purchase: "purchase_notes",
+  quotation: "quotation_notes",
+  "sales-return": "sales_return_notes",
+  "purchase-return": "purchase_return_notes",
+  "purchase-order": "purchase_order_notes",
+  "delivery-challan": "delivery_notes",
+  "proforma-invoice": "proforma_notes",
+};
+
+const documentPrefixType: Record<DocumentType, string> = {
+  "sales-invoice": "invoice_prefix",
+  "credit-note": "credit_prefix",
+  "debit-note": "Debit Note",
+  purchase: "purchase_prefix",
+  quotation: "quotations_prefix",
   "sales-return": "Sales Return",
   "purchase-return": "Purchase Return",
   "purchase-order": "Purchase Order",
@@ -115,6 +147,15 @@ function formatCustomerList(customers: Customer[]): string {
   });
 }
 
+function formatBanksList(banks: BankDetails[]): string {
+  const parsedBanks = JSON.parse(banks.banks);
+  const mappedBanks = parsedBanks.map((bank, index) => {
+    const { bank_name, bank_accountNumber, ...others } = bank;
+    return { value: `${bank_name}`, id: bank_accountNumber, others };
+  });
+  return [...mappedBanks, { value: "Cash", id: "cash" }];
+}
+
 function formatCustomerAddress(
   selectedCustomer: Partial<Customer>,
   customers: Partial<Customer>[]
@@ -132,6 +173,20 @@ function formatCustomerAddress(
   } else {
     return null;
   }
+}
+
+function getCustomerShippingAddress(
+  selectedCustomer: Partial<Customer>,
+  customers: Partial<Customer>[]
+): string | null {
+  if (!selectedCustomer?.id) return null;
+
+  const customer = customers.find((c) => c.id === selectedCustomer.id);
+
+  if (!customer) return null;
+
+  const { id, address, city, state } = customer;
+  return { value: `${address} \n ${city} \n ${state}`, id: id };
 }
 
 function formatProductsList(products: Product[]): string {
@@ -194,16 +249,58 @@ export default function InvoiceForm() {
           return due.toISOString().split("T")[0];
         })()
       : undefined,
+    bankAccount: settings?.banks
+      ? (() => {
+          const defaultBank = JSON.parse(settings.banks.banks).find(
+            (bank) => bank.isDefault
+          );
+          if (!defaultBank) return null;
 
+          const { bank_name, bank_accountNumber, ...others } = defaultBank;
+          return {
+            value: bank_name,
+            id: bank_accountNumber,
+            others,
+          };
+        })()
+      : null,
+    additionalCharges: settings?.preferences
+      ? (() => {
+          const defaultCharges = JSON.parse(
+            settings.preferences.additionalCharges
+          ).map((charge) => {
+            if (charge.isDefault) {
+              const { id, name, price, isDefault } = charge;
+              return {
+                value: name,
+                id: id,
+                price: price,
+                isDefault: isDefault,
+              };
+            }
+            return null;
+          });
+          return defaultCharges;
+        })()
+      : [],
+    paymentModes: [],
     items: [],
     globalDiscount: { type: "percentage", value: 0 },
-    additionalCharges: [],
-    notes: "",
+    notes: settings?.notesTerms?.[documentNotesType[documentType]]
+      ? {
+          value: "Default Note",
+          id: "notes",
+          note: settings?.notesTerms?.[documentNotesType[documentType]],
+        }
+      : {
+          value: "Custom",
+          id: "custom",
+          note: "",
+        },
     tds: { enabled: false, rate: 0, amount: 0 },
     tdsUnderGst: { enabled: false, rate: 0, amount: 0 },
     tcs: { enabled: false, rate: 0, amount: 0 },
     extraDiscount: 0,
-    roundOff: true,
     markedAsPaid: false,
     attachments: [],
   });
@@ -214,17 +311,15 @@ export default function InvoiceForm() {
     settings ? getFullShippingAddress(settings.companyDetails) : []
   );
   const vendors: any[] = [];
-  const bankAccounts: BankAccount[] = [];
-  const signatures: Signature[] = [];
-  const noteTemplates: string[] = [];
 
   const [showAdditionalCharges, setShowAdditionalCharges] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCustomPrefix, setIsCustomPrefix] = useState(
     !["SI-", "INV-", "BILL-"].includes(formData.invoicePrefix)
   );
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const prefix = formData.invoicePrefix;
@@ -250,7 +345,6 @@ export default function InvoiceForm() {
         // if (settings) return;
         const fetchedSettings = await fetchAllSettings();
         setAddress(getFullShippingAddress(fetchedSettings.companyDetails));
-        console.log("Settings", settings);
       } catch (error) {
         console.error("Error initializing sales data:", error);
       }
@@ -285,7 +379,73 @@ export default function InvoiceForm() {
     setFormData((prev) => ({ ...prev, ...updates }));
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    // Required fields validation
+    if (!formData.invoiceNumber.trim()) {
+      newErrors.invoiceNumber = "Invoice number is required";
+    }
+
+    if (!formData.invoiceDate) {
+      newErrors.invoiceDate = "Invoice date is required";
+    }
+
+    if (isCustomerBased && !formData.customer) {
+      newErrors.customer = "Customer is required";
+    }
+
+    if (isVendorBased && !formData.vendor) {
+      newErrors.vendor = "Vendor is required";
+    }
+
+    if (formData.items.length === 0) {
+      newErrors.items = "At least one item is required";
+    }
+
+    // Validate items
+    formData.items.forEach((item, index) => {
+      if (!item.quantity || item.quantity <= 0) {
+        newErrors[`item_${index}_quantity`] = "Quantity must be greater than 0";
+      }
+      if (!item.unitPrice || item.unitPrice <= 0) {
+        newErrors[`item_${index}_price`] = "Unit price must be greater than 0";
+      }
+    });
+
+    // Payment modes validation if not marked as paid
+    if (!formData.markedAsPaid && formData.paymentModes.length > 0) {
+      const totalPaid = formData.paymentModes.reduce(
+        (sum, mode) => sum + mode.amount,
+        0
+      );
+      const totalAmount = calculateTotals().total;
+
+      formData.paymentModes.forEach((mode, index) => {
+        if (!mode.amount || mode.amount <= 0) {
+          newErrors[`payment_${index}_amount`] =
+            "Payment amount must be greater than 0";
+        }
+        if (!mode.paymentMethod) {
+          newErrors[`payment_${index}_method`] = "Payment method is required";
+        }
+      });
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const addItem = (product: any, quantity: number = 1) => {
+    // Clear any existing item errors
+    const newErrors = { ...errors };
+    Object.keys(newErrors).forEach((key) => {
+      if (key.startsWith("item_") || key === "items") {
+        delete newErrors[key];
+      }
+    });
+    setErrors(newErrors);
+
     const newItem: InvoiceItem = {
       id: `item-${Date.now()}`,
       product,
@@ -371,7 +531,7 @@ export default function InvoiceForm() {
       0
     );
     const additionalChargesTotal = formData.additionalCharges.reduce(
-      (sum, charge) => sum + charge.amount,
+      (sum, charge) => sum + charge.price,
       0
     );
 
@@ -408,9 +568,42 @@ export default function InvoiceForm() {
   };
 
   const handleSubmit = async (action: "draft" | "save" | "save-print") => {
+    if (!validateForm()) {
+      toast.error("Please fix the errors before submitting");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await onSubmit?.(formData, action);
+      const totals = calculateTotals();
+
+      // Prepare invoice data for submission
+      const invoiceData = {
+        ...formData,
+        subtotal: totals.subtotal,
+        taxAmount: totals.taxAmount,
+        total: totals.total,
+        status: action === "draft" ? "Draft" : "Sent",
+        customerName: isCustomerBased
+          ? formData.customer?.value
+          : formData.vendor?.value,
+        customerId: isCustomerBased
+          ? formData.customer?.id
+          : formData.vendor?.id,
+      };
+
+      console.log(invoiceData);
+
+      await createInvoice(invoiceData);
+
+      toast.success(
+        action === "draft"
+          ? "Invoice saved as draft"
+          : "Invoice created successfully"
+      );
+
+      // Navigate back to sales page
+      // navigate("/app/sales");
     } finally {
       setIsSubmitting(false);
     }
@@ -519,6 +712,12 @@ export default function InvoiceForm() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Invoice Number
+              {errors.invoiceNumber && (
+                <span className="text-red-500 text-xs ml-2">
+                  <ExclamationTriangleIcon className="h-3 w-3 inline mr-1" />
+                  {errors.invoiceNumber}
+                </span>
+              )}
             </label>
             <>
               <div className="flex">
@@ -529,11 +728,25 @@ export default function InvoiceForm() {
                       onChange={handlePrefixChange}
                       className="w-28 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      {predefinedPrefixes.map((prefix) => (
-                        <option key={prefix} value={prefix}>
-                          {prefix}
+                      {settings.preferences?.[
+                        documentPrefixType[documentType]
+                      ] && (
+                        <option
+                          key="prefix"
+                          value={
+                            settings.preferences?.[
+                              documentPrefixType[documentType]
+                            ]
+                          }
+                        >
+                          {
+                            settings.preferences?.[
+                              documentPrefixType[documentType]
+                            ]
+                          }
                         </option>
-                      ))}
+                      )}
+
                       <option value="custom">Custom</option>
                     </select>
                   ) : (
@@ -568,7 +781,11 @@ export default function InvoiceForm() {
                       invoiceNumber: e.target.value.replace(/[^0-9]/g, ""),
                     })
                   }
-                  className="flex-1 w-0 px-3 py-2 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`flex-1 w-0 px-3 py-2 border border-l-0 rounded-r-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 ${
+                    errors.invoiceNumber
+                      ? "border-red-300 dark:border-red-600 focus:ring-red-500"
+                      : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                  }`}
                   placeholder="202400001"
                 />
               </div>
@@ -585,17 +802,36 @@ export default function InvoiceForm() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {isCustomerBased ? "Customer" : "Vendor"}
+              {(isCustomerBased ? errors.customer : errors.vendor) && (
+                <span className="text-red-500 text-xs ml-2">
+                  <ExclamationTriangleIcon className="h-3 w-3 inline mr-1" />
+                  {isCustomerBased ? errors.customer : errors.vendor}
+                </span>
+              )}
             </label>
             <SearchableDropdown
               options={
                 isCustomerBased ? formatCustomerList(customers) : vendors
               }
               value={isCustomerBased ? formData.customer : formData.vendor}
-              onChange={(entity) =>
+              onChange={(entity) => {
+                if (errors.customer || errors.vendor) {
+                  setErrors((prev) => {
+                    const { customer, vendor, ...others } = prev;
+                    return {
+                      ...others,
+                    };
+                  });
+                }
                 updateFormData(
-                  isCustomerBased ? { customer: entity } : { vendor: entity }
-                )
-              }
+                  isCustomerBased
+                    ? {
+                        customer: entity,
+                        shipping: getCustomerShippingAddress(entity, customers),
+                      }
+                    : { vendor: entity }
+                );
+              }}
               placeholder={`Select ${isCustomerBased ? "customer" : "vendor"}`}
               displayKey="name"
               onAddNew={isCustomerBased ? onAddCustomer : onAddVendor}
@@ -607,6 +843,7 @@ export default function InvoiceForm() {
                   : updateFormData({ vendor: null })
               }
               isCustomValue={true}
+              error={isCustomerBased ? !!errors.customer : !!errors.vendor}
             />
           </div>
 
@@ -651,10 +888,17 @@ export default function InvoiceForm() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Invoice Date
+              {errors.invoiceDate && (
+                <span className="text-red-500 text-xs ml-2">
+                  <ExclamationTriangleIcon className="h-3 w-3 inline mr-1" />
+                  {errors.invoiceDate}
+                </span>
+              )}
             </label>
             <DatePicker
               value={formData.invoiceDate}
               onChange={(date) => updateFormData({ invoiceDate: date })}
+              error={!!errors.invoiceDate}
             />
           </div>
 
@@ -728,6 +972,7 @@ export default function InvoiceForm() {
         onCategoryChange={setSelectedCategory}
         onAddProduct={addItem}
         onAddNewProduct={onAddProduct}
+        error={errors.items}
       />
 
       {/* Items Table */}
@@ -744,8 +989,24 @@ export default function InvoiceForm() {
         onAdditionalChargesChange={(charges) =>
           updateFormData({ additionalCharges: charges })
         }
+        additionalChargesOptions={
+          settings?.preferences?.additionalCharges
+            ? JSON.parse(settings.preferences.additionalCharges).map(
+                (charge) => {
+                  const { id, name, price, isDefault } = charge;
+                  return {
+                    value: name,
+                    id: id,
+                    price: price,
+                    isDefault: isDefault,
+                  };
+                }
+              )
+            : []
+        }
         showAdditionalCharges={showAdditionalCharges}
         onToggleAdditionalCharges={setShowAdditionalCharges}
+        errors={errors}
       />
 
       {/* Summary Section */}
@@ -755,18 +1016,21 @@ export default function InvoiceForm() {
         tdsUnderGst={formData.tdsUnderGst}
         tcs={formData.tcs}
         extraDiscount={formData.extraDiscount}
-        roundOff={formData.roundOff}
+        roundOff={
+          typeof settings?.preferences?.roundoff === "string"
+            ? settings.preferences.roundoff === "true"
+            : !!settings?.preferences?.roundoff
+        }
         onTdsChange={(tds) => updateFormData({ tds })}
         onTdsUnderGstChange={(tdsUnderGst) => updateFormData({ tdsUnderGst })}
         onTcsChange={(tcs) => updateFormData({ tcs })}
         onExtraDiscountChange={(extraDiscount) =>
           updateFormData({ extraDiscount })
         }
-        onRoundOffChange={(roundOff) => updateFormData({ roundOff })}
       />
 
       {/* Payment & Bank Info */}
-      <PaymentSection
+      {/* <PaymentSection
         bankAccount={formData.bankAccount}
         bankAccounts={bankAccounts}
         markedAsPaid={formData.markedAsPaid}
@@ -779,13 +1043,45 @@ export default function InvoiceForm() {
           updateFormData({ paymentNotes })
         }
         onAddBankAccount={onAddBankAccount}
+        paymentModes={[]}
+      /> */}
+
+      <PaymentSection
+        bankAccount={formData.bankAccount}
+        bankAccounts={formatBanksList(settings.banks)}
+        markedAsPaid={formData.markedAsPaid}
+        paymentNotes={formData.paymentNotes}
+        paymentModes={formData.paymentModes}
+        totalAmount={totals.total}
+        onBankAccountChange={(bankAccount) => updateFormData({ bankAccount })}
+        onMarkedAsPaidChange={(markedAsPaid) =>
+          updateFormData({ markedAsPaid })
+        }
+        onPaymentNotesChange={(paymentNotes) =>
+          updateFormData({ paymentNotes })
+        }
+        onPaymentModesChange={(paymentModes) =>
+          updateFormData({ paymentModes })
+        }
+        onAddBankAccount={onAddBankAccount}
+        errors={errors}
       />
 
       {/* Notes Section */}
       <NotesSection
         notes={formData.notes}
         onNotesChange={(notes) => updateFormData({ notes })}
-        noteTemplates={noteTemplates}
+        savedNotes={
+          settings?.notesTerms?.[documentNotesType[documentType]]
+            ? [
+                {
+                  value: "Default Note",
+                  id: "notes",
+                  note: settings?.notesTerms?.[documentNotesType[documentType]],
+                },
+              ]
+            : []
+        }
       />
 
       {/* Attachments */}
@@ -793,9 +1089,11 @@ export default function InvoiceForm() {
         attachments={formData.attachments}
         onAttachmentsChange={(attachments) => updateFormData({ attachments })}
         signature={formData.signature}
-        signatures={signatures}
+        signatures={settings.signatures ?? null}
         onSignatureChange={(signature) => updateFormData({ signature })}
-        onAddSignature={onAddSignature}
+        onAddSignature={() =>
+          navigate("/app/settings?subtab=content&tab=signatures")
+        }
       />
 
       {/* Floating Action Buttons */}
@@ -840,6 +1138,23 @@ export default function InvoiceForm() {
           <span className="font-medium">Amount in Words:</span>{" "}
           {numberToWords(totals.total)} Only
         </p>
+
+        {/* Display validation errors summary */}
+        {Object.keys(errors).length > 0 && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center mb-2">
+              <ExclamationTriangleIcon className="h-4 w-4 text-red-600 dark:text-red-400 mr-2" />
+              <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                Please fix the following errors:
+              </span>
+            </div>
+            <ul className="text-xs text-red-700 dark:text-red-300 space-y-1">
+              {Object.entries(errors).map(([key, error]) => (
+                <li key={key}>• {error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -847,7 +1162,6 @@ export default function InvoiceForm() {
 
 // Helper function to convert number to words (simplified)
 function numberToWords(num: number): string {
-  // This is a simplified version - you might want to use a proper library
   const ones = [
     "",
     "One",
@@ -885,33 +1199,41 @@ function numberToWords(num: number): string {
     "Ninety",
   ];
 
-  if (num === 0) return "Zero";
+  function convertTwoDigits(n: number): string {
+    if (n < 10) return ones[n];
+    else if (n < 20) return teens[n - 10];
+    else return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+  }
+
+  function convertNumber(n: number): string {
+    if (n === 0) return "";
+
+    const crore = Math.floor(n / 10000000);
+    const lakh = Math.floor((n % 10000000) / 100000);
+    const thousand = Math.floor((n % 100000) / 1000);
+    const hundred = Math.floor((n % 1000) / 100);
+    const rest = n % 100;
+
+    let result = "";
+
+    if (crore) result += convertTwoDigits(crore) + " Crore ";
+    if (lakh) result += convertTwoDigits(lakh) + " Lakh ";
+    if (thousand) result += convertTwoDigits(thousand) + " Thousand ";
+    if (hundred) result += ones[hundred] + " Hundred ";
+    if (rest) result += (result ? "and " : "") + convertTwoDigits(rest);
+
+    return result.trim();
+  }
+
+  if (num === 0) return "Zero Rupees";
 
   const rupees = Math.floor(num);
   const paise = Math.round((num - rupees) * 100);
 
   let result = "";
-
-  if (rupees > 0) {
-    // Simplified conversion for demonstration
-    if (rupees < 10) {
-      result = ones[rupees];
-    } else if (rupees < 20) {
-      result = teens[rupees - 10];
-    } else if (rupees < 100) {
-      result =
-        tens[Math.floor(rupees / 10)] +
-        (rupees % 10 ? " " + ones[rupees % 10] : "");
-    } else {
-      result = "Rupees " + rupees.toString(); // Simplified for larger numbers
-    }
-    result += " Rupees";
-  }
-
-  if (paise > 0) {
-    if (result) result += " and ";
-    result += paise + " Paise";
-  }
+  if (rupees) result += convertNumber(rupees) + " Rupees";
+  if (paise)
+    result += (result ? " and " : "") + convertNumber(paise) + " Paise";
 
   return result;
 }

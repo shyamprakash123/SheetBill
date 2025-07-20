@@ -33,6 +33,16 @@ export default function AttachmentSection({
     onAttachmentsChange([...attachments, ...files]);
   };
 
+  function getImageUrl(url: string): string | null {
+    if (!url) return null;
+    const regex = /\/d\/([a-zA-Z0-9_-]{10,})/;
+    const match = url.match(regex);
+    const fileId = match ? match[1] : null;
+    // return `https://drive.google.com/file/d/${fileId}/preview`;
+    return `https://drive.google.com/thumbnail?id=${fileId}`;
+    // return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+  }
+
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const files = Array.from(event.dataTransfer.files);
@@ -137,24 +147,36 @@ export default function AttachmentSection({
             Select Signature
           </label>
           <SearchableDropdown
-            options={signatures}
+            options={
+              signatures
+                ? [
+                    {
+                      value: signatures.name,
+                      id: signatures.name,
+                      sig: signatures.image,
+                    },
+                  ]
+                : []
+            }
             value={signature}
             onChange={onSignatureChange}
             placeholder="Select signature"
             displayKey="name"
             onAddNew={onAddSignature}
             addNewLabel="Add New Signature"
+            noSearch={true}
+            onRemoveOption={() => onSignatureChange(null)}
           />
 
           {signature && (
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                {signature.name}
+                {signature.value}
               </div>
               <img
-                src={signature.imageUrl}
-                alt={signature.name}
-                className="max-h-16 max-w-32 object-contain border border-gray-200 dark:border-gray-600 rounded"
+                src={getImageUrl(signature.sig)}
+                alt={signature.value}
+                className="max-h-32 max-w-32 object-contain border border-gray-200 dark:border-gray-600 rounded"
               />
             </div>
           )}

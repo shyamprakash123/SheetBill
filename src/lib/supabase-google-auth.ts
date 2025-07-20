@@ -155,8 +155,6 @@ export class SupabaseGoogleAuth {
           .from("user_profiles")
           .update({ google_tokens: updatedTokens })
           .eq("id", user.id);
-
-        console.log("Google tokens refreshed and persisted");
       }
     } catch (error) {
       console.warn("Failed to persist refreshed tokens:", error);
