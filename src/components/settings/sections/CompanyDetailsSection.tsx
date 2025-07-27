@@ -25,20 +25,21 @@ export default function CompanyDetailsSection() {
 
     // GSTIN and PAN
     if (
-      details.gstin.trim() &&
-      !details.gstin.match(
+      (details.gstin || "").trim() &&
+      !(details.gstin || "").match(
         /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/
       )
     )
       errors.gstin = "Invalid GSTIN format";
-    if (details.pan.trim() && !details.pan.match(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/))
+
+    if (
+      (details.pan || "").trim() &&
+      !(details.pan || "").match(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)
+    )
       errors.pan = "Invalid PAN format";
 
-    // Email and phone
-    if (!details.email.match(/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/))
+    if (!(details.email || "").match(/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/))
       errors.email = "Invalid email address";
-    if (!details.phone.match(/^\d{10}$/))
-      errors.phone = "Invalid phone number (10 digits)";
 
     // Website
     if (
@@ -49,7 +50,7 @@ export default function CompanyDetailsSection() {
 
     // Helper: check if any billing field is filled
     const isBillingFilled =
-      details.billing_address.trim() ||
+      (details.billing_address || "").trim().trim() ||
       details.billing_city.trim() ||
       details.billing_state.trim() ||
       details.billing_pincode.trim();
@@ -601,7 +602,7 @@ export default function CompanyDetailsSection() {
                     formData.billing_address?.trim() === "" ||
                     formData.billing_city?.trim() === "" ||
                     formData.billing_state?.trim() === "" ||
-                    formData.billing_pincode?.trim() === ""
+                    formData.billing_pincode === ""
                   }
                   checked={sameAsBilling}
                   onChange={(e) => handleSameAsBillingChange(e.target.checked)}

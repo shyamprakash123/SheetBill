@@ -251,10 +251,10 @@ export default function SearchableDropdown({
                               </span>
                             )}
                             {option.description && (
-                              <span className="text-gray-500 font-sans font-semibold">
+                              <p className="text-gray-500 font-sans font-semibold">
                                 {"  "}
                                 {option.description}
-                              </span>
+                              </p>
                             )}
                           </div>
                         ))}

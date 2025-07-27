@@ -124,7 +124,7 @@ function getFullShippingAddress(details: CompanyDetails[]): string {
     details.shipping_address?.trim(),
     details.shipping_city?.trim(),
     details.shipping_state?.trim(),
-    details.shipping_pincode?.trim(),
+    details.shipping_pincode,
     details.shipping_country?.trim(),
   ];
 
@@ -141,16 +141,9 @@ function getFullShippingAddress(details: CompanyDetails[]): string {
 
 function formatCustomerList(customers: Customer[]): string {
   return customers.map((customer, index) => {
-    const { id, name, gstin, phone, email } = customer;
+    const { id, name, gstin } = customer;
 
-    return {
-      value: `${name}`,
-      description: `${gstin ? `GSTIN: ${gstin}` : null}`,
-      gstin,
-      phone,
-      email,
-      id: id,
-    };
+    return { value: `${name} \n ${gstin ? gstin : null}`, id: id };
   });
 }
 
@@ -226,84 +219,42 @@ function formatProductsList(products: Product[]): string {
 export default function InvoiceForm() {
   const navigate = useNavigate();
 
-  const { invoice_type } = useParams<{ invoice_type: DocumentType }>();
+  const { invoice_type, invoice_rowId, invoice_id } = useParams<{
+    invoice_type: DocumentType;
+    invoice_rowId: string;
+    invoice_id: string;
+  }>();
   const documentType = invoice_type;
 
   const {
     customers,
     products,
-    createInvoice,
+    getInvoiceById,
     updateInvoice,
     fetchCustomers,
     fetchProducts,
     loading,
     settings,
-    updateCompanyDetails,
     fetchAllSettings,
   } = useInvoiceStore();
 
   const [formData, setFormData] = useState<InvoiceFormData>({
-    documentType: "sales-invoice",
+    documentType: invoice_type,
     invoiceType: "regular",
     invoiceNumber: "",
     invoicePrefix: getDefaultPrefix(documentType),
     invoiceDate: new Date().toISOString().split("T")[0],
-    dueDate: settings?.preferences?.defaultDueDays
-      ? (() => {
-          const days = parseInt(settings.preferences.defaultDueDays || "0", 10);
-          const due = new Date();
-          due.setDate(due.getDate() + days);
-          return due.toISOString().split("T")[0];
-        })()
-      : undefined,
-    bankAccount: settings?.banks
-      ? (() => {
-          const defaultBank = JSON.parse(settings.banks.banks).find(
-            (bank) => bank.isDefault
-          );
-          if (!defaultBank) return null;
-
-          const { bank_name, bank_accountNumber, ...others } = defaultBank;
-          return {
-            value: bank_name,
-            id: bank_accountNumber,
-            others,
-          };
-        })()
-      : null,
-    additionalCharges: settings?.preferences
-      ? (() => {
-          const defaultCharges = JSON.parse(
-            settings.preferences.additionalCharges
-          ).map((charge) => {
-            if (charge.isDefault) {
-              const { id, name, price, isDefault } = charge;
-              return {
-                value: name,
-                id: id,
-                price: price,
-                isDefault: isDefault,
-              };
-            }
-            return null;
-          });
-          return defaultCharges;
-        })()
-      : [],
+    dueDate: undefined,
+    bankAccount: null,
+    additionalCharges: [],
     paymentModes: [],
     items: [],
     globalDiscount: { type: "percentage", value: 0 },
-    notes: settings?.notesTerms?.[documentNotesType[documentType]]
-      ? {
-          value: "Default Note",
-          id: "notes",
-          note: settings?.notesTerms?.[documentNotesType[documentType]],
-        }
-      : {
-          value: "Custom",
-          id: "custom",
-          note: "",
-        },
+    notes: {
+      value: "Custom",
+      id: "custom",
+      note: "",
+    },
     tds: { enabled: false, rate: 0, amount: 0 },
     tdsUnderGst: { enabled: false, rate: 0, amount: 0 },
     tcs: { enabled: false, rate: 0, amount: 0 },
@@ -334,24 +285,26 @@ export default function InvoiceForm() {
 
     const isPrefixMismatch = currentNumber && !currentNumber.startsWith(prefix);
 
-    if (!currentNumber || isPrefixMismatch) {
-      const random = Math.floor(Math.random() * 1000)
-        .toString()
-        .padStart(3, "0");
+    // if (!currentNumber || isPrefixMismatch) {
+    //   const random = Math.floor(Math.random() * 1000)
+    //     .toString()
+    //     .padStart(3, "0");
 
-      const newInvoiceNumber = `${new Date().getFullYear()}${random}`;
+    //   const newInvoiceNumber = `${new Date().getFullYear()}${random}`;
 
-      setFormData((prev) => ({
-        ...prev,
-        invoiceNumber: newInvoiceNumber,
-      }));
-    }
+    //   setFormData((prev) => ({
+    //     ...prev,
+    //     invoiceNumber: newInvoiceNumber,
+    //   }));
+    // }
 
     const initData = async () => {
       try {
         // if (settings) return;
         const fetchedSettings = await fetchAllSettings();
         setAddress(getFullShippingAddress(fetchedSettings.companyDetails));
+        const fetchedForm = await getInvoiceById(invoice_rowId);
+        setFormData(fetchedForm);
       } catch (error) {
         console.error("Error initializing sales data:", error);
       }
@@ -390,7 +343,7 @@ export default function InvoiceForm() {
     const newErrors: Record<string, string> = {};
 
     // Required fields validation
-    if (!formData.invoiceNumber.trim()) {
+    if (!formData.invoiceNumber) {
       newErrors.invoiceNumber = "Invoice number is required";
     }
 
@@ -601,12 +554,12 @@ export default function InvoiceForm() {
 
       console.log(invoiceData);
 
-      await createInvoice(invoiceData);
+      await updateInvoice(invoice_rowId, invoiceData);
 
       toast.success(
         action === "draft"
           ? "Invoice saved as draft"
-          : "Invoice created successfully"
+          : "Invoice updated successfully"
       );
 
       // Navigate back to sales page
@@ -674,7 +627,7 @@ export default function InvoiceForm() {
         <div className="flex items-center  mb-6">
           <div className="flex flex-1 ">
             <h1 className="flex text-2xl items-center font-bold text-gray-900 dark:text-white mr-12">
-              {documentTypeLabels[documentType]}
+              Edit {documentTypeLabels[documentType]}
             </h1>
             {/* Dispatch From Address */}
             <div className="w-64">

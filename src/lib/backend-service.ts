@@ -142,6 +142,7 @@ export class InvoiceService {
     };
 
     const row = [
+      "=ROW()",
       invoice.id,
       invoice.customerId || "",
       JSON.stringify(invoice.customer),
@@ -187,7 +188,7 @@ export class InvoiceService {
     try {
       const data = await this.sheetsService.getSheetData(
         this.spreadsheetId,
-        "Invoices!A2:AG"
+        "ViewInvoices!A1:AH"
       );
       if (!data || data.length === 0) {
         return [];
@@ -195,45 +196,56 @@ export class InvoiceService {
 
       return data
         .map((row) => ({
-          id: row[0] || "",
-          customerId: row[1] || "",
-          customer: JSON.parse(row[2]) || "",
-          invoiceDate: row[3] || "",
-          date: row[3] || "", // Keep for backward compatibility
-          dueDate: row[4] || "",
-          subtotal: parseFloat(row[5]) || 0,
-          taxAmount: parseFloat(row[6]) || 0,
-          total: parseFloat(row[7]) || 0,
-          status: (row[8] as Invoice["status"]) || "Draft",
-          items: JSON.parse(row[9]) || "",
-          paymentNotes: row[10] || "",
-          documentType: row[11] || "",
-          invoiceType: row[12] || "",
-          invoiceNumber: row[13] || "",
-          invoicePrefix: row[14] || "",
-          bankAccount: JSON.parse(row[15]) || null,
-          additionalCharges: JSON.parse(row[16]) || null,
-          paymentModes: JSON.parse(row[17]) || [],
-          globalDiscount: JSON.parse(row[18]) || {
-            type: "percentage",
-            value: 0,
-          },
-          tds: JSON.parse(row[19]) || { enabled: false, rate: 0, amount: 0 },
-          tdsUnderGst: JSON.parse(row[20]) || {
-            enabled: false,
-            rate: 0,
-            amount: 0,
-          },
-          tcs: JSON.parse(row[21]) || { enabled: false, rate: 0, amount: 0 },
-          extraDiscount: row[22] || 0,
-          markedAsPaid: row[23] || false,
-          attachments: JSON.parse(row[24]) || [],
-          dispatchFromAddress: JSON.parse(row[25]) || null,
-          shipping: JSON.parse(row[26]) || null,
-          reference: row[27] || null,
-          createdAt: row[28] || "",
-          updatedAt: row[29] || "",
-          pdfUrl: row[30] || "",
+          rowId: row[0] || "",
+          id: row[1] || "",
+          customerId: row[2] || "",
+          customer: JSON.parse(row[3]) || "",
+          invoiceDate: row[4] || "",
+          date: row[4] || "", // Keep for backward compatibility
+          dueDate: row[5] || "",
+          subtotal: parseFloat(row[6]) || 0,
+          taxAmount: parseFloat(row[7]) || 0,
+          total: parseFloat(row[8]) || 0,
+          status: (row[9] as Invoice["status"]) || "Draft",
+          items: JSON.parse(row[10]) || "",
+          paymentNotes: row[11] || "",
+          documentType: row[12] || "",
+          invoiceType: row[13] || "",
+          invoiceNumber: row[14] || "",
+          invoicePrefix: row[15] || "",
+          bankAccount: row[16] ? JSON.parse(row[16]) : null,
+          additionalCharges: row[17] ? JSON.parse(row[17]) : null,
+          paymentModes: row[18] ? JSON.parse(row[18]) : [],
+          globalDiscount: row[19]
+            ? JSON.parse(row[19])
+            : {
+                type: "percentage",
+                value: 0,
+              },
+          notes: row[20] ? JSON.parse(row[20]) : {},
+          tds: row[21]
+            ? JSON.parse(row[21])
+            : { enabled: false, rate: 0, amount: 0 },
+          tdsUnderGst: row[22]
+            ? JSON.parse(row[22])
+            : {
+                enabled: false,
+                rate: 0,
+                amount: 0,
+              },
+          tcs: row[23]
+            ? JSON.parse(row[23])
+            : { enabled: false, rate: 0, amount: 0 },
+          extraDiscount: row[24] || 0,
+          markedAsPaid: row[25] || false,
+          attachments: row[26] ? JSON.parse(row[26]) : [],
+          dispatchFromAddress: row[27] ? JSON.parse(row[27]) : null,
+          shipping: row[28] ? JSON.parse(row[28]) : null,
+          signature: row[29] ? JSON.parse(row[29]) : null,
+          reference: row[30] || null,
+          createdAt: row[31] || "",
+          updatedAt: row[32] || "",
+          pdfUrl: row[33] || "",
         }))
         .filter((invoice) => invoice.id); // Filter out empty rows
     } catch (error) {
@@ -242,50 +254,129 @@ export class InvoiceService {
     }
   }
 
-  async getInvoiceById(invoiceId: string): Promise<Invoice | null> {
-    const invoices = await this.getInvoices();
-    return invoices.find((inv) => inv.id === invoiceId) || null;
+  async getInvoiceById(rowIndex: number): Promise<Invoice | null> {
+    try {
+      const range = `Invoices!A${rowIndex}:AH${rowIndex}`;
+      const data = await this.sheetsService.getSheetData(
+        this.spreadsheetId,
+        range
+      );
+
+      if (!data || data.length === 0 || !data[0][1]) {
+        return null;
+      }
+
+      const row = data[0]; // only one row fetched
+
+      const invoice: Invoice = {
+        rowId: row[0] || "",
+        id: row[1] || "",
+        customerId: row[2] || "",
+        customer: JSON.parse(row[3]) || "",
+        invoiceDate: row[4] || "",
+        date: row[4] || "", // Keep for backward compatibility
+        dueDate: row[5] || "",
+        subtotal: parseFloat(row[6]) || 0,
+        taxAmount: parseFloat(row[7]) || 0,
+        total: parseFloat(row[8]) || 0,
+        status: (row[9] as Invoice["status"]) || "Draft",
+        items: JSON.parse(row[10]) || "",
+        paymentNotes: row[11] || "",
+        documentType: row[12] || "",
+        invoiceType: row[13] || "",
+        invoiceNumber: row[14] || "",
+        invoicePrefix: row[15] || "",
+        bankAccount: row[16] ? JSON.parse(row[16]) : null,
+        additionalCharges: row[17] ? JSON.parse(row[17]) : null,
+        paymentModes: row[18] ? JSON.parse(row[18]) : [],
+        globalDiscount: row[19]
+          ? JSON.parse(row[19])
+          : {
+              type: "percentage",
+              value: 0,
+            },
+        notes: row[20] ? JSON.parse(row[20]) : {},
+        tds: row[21]
+          ? JSON.parse(row[21])
+          : { enabled: false, rate: 0, amount: 0 },
+        tdsUnderGst: row[22]
+          ? JSON.parse(row[22])
+          : {
+              enabled: false,
+              rate: 0,
+              amount: 0,
+            },
+        tcs: row[23]
+          ? JSON.parse(row[23])
+          : { enabled: false, rate: 0, amount: 0 },
+        extraDiscount: row[24] || 0,
+        markedAsPaid: row[25] || false,
+        attachments: row[26] ? JSON.parse(row[26]) : [],
+        dispatchFromAddress: row[27] ? JSON.parse(row[27]) : null,
+        shipping: row[28] ? JSON.parse(row[28]) : null,
+        signature: row[29] ? JSON.parse(row[29]) : null,
+        reference: row[30] || null,
+        createdAt: row[31] || "",
+        updatedAt: row[32] || "",
+        pdfUrl: row[33] || "",
+      };
+
+      return invoice;
+    } catch (error) {
+      console.error(`Error getting invoice at row ${rowIndex}:`, error);
+      return null;
+    }
   }
 
   async updateInvoice(
     invoiceId: string,
-    updates: Partial<Invoice>
+    updatedInvoice: Partial<Invoice>
   ): Promise<Invoice> {
-    const invoices = await this.getInvoices();
-    const invoiceIndex = invoices.findIndex((inv) => inv.id === invoiceId);
-
-    if (invoiceIndex === -1) {
-      throw new Error("Invoice not found");
-    }
-
-    const updatedInvoice = {
-      ...invoices[invoiceIndex],
-      ...updates,
+    const invoice = {
+      ...updatedInvoice,
       updatedAt: new Date().toISOString(),
     };
 
     const row = [
-      updatedInvoice.id,
-      updatedInvoice.customerId,
-      updatedInvoice.customerName,
-      updatedInvoice.invoiceDate || updatedInvoice.date,
-      updatedInvoice.dueDate,
-      updatedInvoice.subtotal,
-      updatedInvoice.taxAmount,
-      updatedInvoice.total,
-      updatedInvoice.status,
-      updatedInvoice.notes?.note || updatedInvoice.notes || "",
-      JSON.stringify(updatedInvoice.items),
-      updatedInvoice.paymentTerms || "",
-      updatedInvoice.createdAt,
-      updatedInvoice.updatedAt,
-      updatedInvoice.pdfUrl || "",
+      "=ROW()",
+      invoice.id,
+      invoice.customerId || "",
+      JSON.stringify(invoice.customer),
+      invoice.invoiceDate,
+      invoice.dueDate || "",
+      invoice.subtotal || 0,
+      invoice.taxAmount || 0,
+      invoice.total || 0,
+      invoice.status,
+      JSON.stringify(invoice.items || []),
+      invoice.paymentNotes || "",
+      invoice.documentType,
+      invoice.invoiceType,
+      invoice.invoiceNumber,
+      invoice.invoicePrefix,
+      JSON.stringify(invoice.bankAccount),
+      JSON.stringify(invoice.additionalCharges),
+      JSON.stringify(invoice.paymentModes),
+      JSON.stringify(invoice.globalDiscount),
+      JSON.stringify(invoice.notes),
+      JSON.stringify(invoice.tds),
+      JSON.stringify(invoice.tdsUnderGst),
+      JSON.stringify(invoice.tcs),
+      invoice.extraDiscount,
+      invoice.markedAsPaid,
+      JSON.stringify(invoice.attachments),
+      JSON.stringify(invoice.dispatchFromAddress),
+      JSON.stringify(invoice.shipping),
+      JSON.stringify(invoice.signature),
+      invoice.reference,
+      invoice.createdAt,
+      invoice.updatedAt,
+      invoice.pdfUrl || "",
     ];
 
-    const rowNumber = invoiceIndex + 2; // +1 for header, +1 for 1-based indexing
     await this.sheetsService.updateSheetData(
       this.spreadsheetId,
-      `Invoices!A${rowNumber}:O${rowNumber}`,
+      `Invoices!A${invoiceId}:AH${invoiceId}`,
       [row]
     );
 

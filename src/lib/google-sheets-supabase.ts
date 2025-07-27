@@ -263,6 +263,8 @@ export class GoogleSheetsSupabaseService {
         "Notes",
       ],
 
+      ViewInvoices: ["=SORT(Invoices!A2:AH, 1, FALSE)"],
+
       // Initialize Settings sheet with structured key-value rows
       Settings: [
         ["Section", "companyDetails", "", now, systemUser],
@@ -361,7 +363,7 @@ export class GoogleSheetsSupabaseService {
       {
         method: "POST",
         body: JSON.stringify({
-          valueInputOption: "RAW",
+          valueInputOption: "USER_ENTERED",
           data,
         }),
       }
@@ -389,7 +391,7 @@ export class GoogleSheetsSupabaseService {
   ): Promise<any> {
     const encodedRange = encodeURIComponent(range);
     const response = await this.makeGoogleAPIRequest(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}?valueInputOption=USER_ENTERED`,
       {
         method: "PUT",
         body: JSON.stringify({ values }),
@@ -407,7 +409,7 @@ export class GoogleSheetsSupabaseService {
   ): Promise<any> {
     const encodedRange = encodeURIComponent(range);
     const response = await this.makeGoogleAPIRequest(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
         method: "POST",
         body: JSON.stringify({ values }),

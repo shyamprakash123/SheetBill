@@ -24,6 +24,7 @@ const BackendInitializer = ({ children }: { children: React.ReactNode }) => {
           }
         }
         await initializeService();
+
         await fetchProducts();
         await fetchAllSettings();
       } catch (error: any) {

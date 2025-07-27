@@ -4,10 +4,16 @@
 
 @layer base {
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
     scroll-behavior: smooth;
   }
-  
+
+  @layer base {
+    img {
+      @apply inline-block;
+    }
+  }
+
   body {
     @apply antialiased;
   }
@@ -17,19 +23,19 @@
   .btn-primary {
     @apply inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200;
   }
-  
+
   .btn-secondary {
     @apply inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200;
   }
-  
+
   .input-field {
     @apply block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
   }
-  
+
   .card {
     @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-200;
   }
-  
+
   .card-hover {
     @apply hover:shadow-lg hover:-translate-y-1;
   }
@@ -76,7 +82,9 @@
 
 /* Smooth transitions */
 * {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-property: color, background-color, border-color,
+    text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter,
+    backdrop-filter;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
@@ -124,11 +132,13 @@
 
 /* Shadow utilities */
 .shadow-soft {
-  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.07),
+    0 10px 20px -2px rgba(0, 0, 0, 0.04);
 }
 
 .dark .shadow-soft {
-  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.3), 0 10px 20px -2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.3),
+    0 10px 20px -2px rgba(0, 0, 0, 0.2);
 }
 
 /* Interactive elements */
@@ -154,7 +164,7 @@
 }
 
 /* Print styles */
-@media print {
+/* @media print {
   .no-print {
     display: none !important;
   }
@@ -162,14 +172,55 @@
   .print-break {
     page-break-after: always;
   }
+} */
+@media print {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #pdf-content {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: auto;
+
+    position: relative;
+    top: 0;
+    left: 0;
+  }
 }
+
+/* .block-no-break {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.page-break-before {
+  break-before: always;
+  page-break-before: always;
+}
+
+.page-break-after {
+  break-after: always;
+  page-break-after: always;
+} */
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   .btn-primary {
     @apply border-2 border-primary-800;
   }
-  
+
   .card {
     @apply border-2;
   }

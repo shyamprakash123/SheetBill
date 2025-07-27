@@ -32,6 +32,7 @@ import "./index.css";
 import SettingsContent from "./components/settings/SettingsContent";
 import BackendInitializer from "./components/wrapper/BackendInitializer";
 import InvoiceForm from "./components/invoice/InvoiceForm";
+import EditInvoiceForm from "./components/invoice/EditInvoiceForm";
 
 function App() {
   const { loading } = useAuthStore();
@@ -93,6 +94,10 @@ function App() {
               <Route path="eway-bills" element={<EWayBills />} />
               <Route path="payments" element={<Payments />} />
               <Route path="create/:invoice_type" element={<InvoiceForm />} />
+              <Route
+                path="edit/:invoice_type/:invoice_rowId/:invoice_id"
+                element={<EditInvoiceForm />}
+              />
             </Route>
             {/* Legacy routes for backward compatibility */}
             <Route
