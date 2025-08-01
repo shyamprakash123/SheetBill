@@ -158,6 +158,16 @@ const getBase64FromImageUrl = (
   });
 };
 
+export function formatAmount(amount: number | string): string {
+  const num = Number(amount);
+  if (isNaN(num)) return "0.00";
+
+  return num.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 const fetchDriveImage = async (fileId: string, accessToken: string) => {
   const response = await fetch(
     `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
@@ -414,7 +424,7 @@ export const InvoiceCanvas = forwardRef<
   const thStyle = {
     borderRight: "1px solid #000",
     padding: "2px",
-    fontWeight: "bold",
+    fontWeight: 500,
   };
 
   const tdLeft = {
@@ -422,7 +432,7 @@ export const InvoiceCanvas = forwardRef<
     padding: "1px",
     paddingLeft: "4px",
     textAlign: "left",
-    fontWeight: "bold",
+    fontWeight: 500,
   };
 
   const tdRight = {
@@ -430,14 +440,14 @@ export const InvoiceCanvas = forwardRef<
     padding: "1px",
     paddingRight: "4px",
     textAlign: "right",
-    fontWeight: "bold",
+    fontWeight: 500,
   };
 
   const tdCenter = {
     borderRight: "1px solid #000",
     padding: "1px",
     textAlign: "center",
-    fontWeight: "bold",
+    fontWeight: 500,
   };
 
   const blocks = useMemo(() => {
@@ -477,22 +487,25 @@ export const InvoiceCanvas = forwardRef<
             justifyItems: "center",
             alignItems: "center",
             textAlign: "center",
-            lineHeight: "1.2",
+            lineHeight: "1.4",
           }}
         >
-          <div style={{ fontSize: "18px", fontWeight: "bolder" }}>
+          <div style={{ fontSize: "18px", fontWeight: 600 }}>
             {data.companyName}
           </div>
 
           {data.companyGSTIN && (
-            <div style={{ fontSize: "13px", fontWeight: "bolder" }}>
-              GSTIN: {data.companyGSTIN}
+            <div style={{ fontSize: "12px", fontWeight: 600 }}>
+              <p style={{ fontWeight: 500 }}>
+                GSTIN:{" "}
+                <span style={{ fontWeight: "bold" }}>{data.companyGSTIN}</span>
+              </p>
             </div>
           )}
 
           <div
             style={{
-              fontSize: "13px",
+              fontSize: "12px",
               whiteSpace: "pre-line",
               overflow: "hidden",
               display: "-webkit-box",
@@ -506,10 +519,10 @@ export const InvoiceCanvas = forwardRef<
 
           <div
             className="flex space-x-2"
-            style={{ fontSize: "13px", gap: "8px" }}
+            style={{ fontSize: "12px", gap: "8px" }}
           >
             {data.companyEmail && (
-              <p style={{ fontWeight: "bold" }}>
+              <p style={{ fontWeight: 500 }}>
                 Email:{" "}
                 <span style={{ fontWeight: "normal" }}>
                   {data.companyEmail}
@@ -517,7 +530,7 @@ export const InvoiceCanvas = forwardRef<
               </p>
             )}
             {data.companyPhone && (
-              <p style={{ fontWeight: "bold" }}>
+              <p style={{ fontWeight: 500 }}>
                 Mobile:{" "}
                 <span style={{ fontWeight: "normal" }}>
                   {data.companyPhone}
@@ -540,18 +553,18 @@ export const InvoiceCanvas = forwardRef<
         >
           <div
             style={{
-              fontWeight: "bold",
-              fontSize: "14px",
+              fontWeight: 500,
+              fontSize: "12px",
             }}
           >
             Customer Details:
           </div>
-          <div style={{ fontSize: "13px" }}>
-            <div style={{ fontWeight: "bold", marginBottom: "1px" }}>
+          <div style={{ fontSize: "12px" }}>
+            <div style={{ fontWeight: 600, marginBottom: "1px" }}>
               {data.customerName}
             </div>
             {data.customerGSTIN && (
-              <div style={{ marginBottom: "1px", fontWeight: "bold" }}>
+              <div style={{ marginBottom: "1px", fontWeight: 600 }}>
                 GSTIN: {data.customerGSTIN}
               </div>
             )}
@@ -567,7 +580,7 @@ export const InvoiceCanvas = forwardRef<
             )}
             <div
               style={{
-                fontWeight: "bold",
+                fontWeight: 500,
                 marginTop: "1px",
                 marginBottom: "1px",
               }}
@@ -588,15 +601,15 @@ export const InvoiceCanvas = forwardRef<
             lineHeight: "1.2",
           }}
         >
-          <div style={{ fontSize: "13px", lineHeight: "1.2" }}>
+          <div style={{ fontSize: "12px", lineHeight: "1.2" }}>
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ fontWeight: "bold" }}>Invoice #:</span>
-              <span style={{ fontWeight: "bold" }}>{data.invoiceNumber}</span>
+              <span style={{ fontWeight: 500 }}>Invoice #:</span>
+              <span style={{ fontWeight: 600 }}>{data.invoiceNumber}</span>
             </div>
             <div
               style={{
@@ -604,8 +617,8 @@ export const InvoiceCanvas = forwardRef<
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ fontWeight: "bold" }}>Invoice Date:</span>
-              <span style={{ fontWeight: "bold" }}>{data.invoiceDate}</span>
+              <span style={{ fontWeight: 500 }}>Invoice Date:</span>
+              <span style={{ fontWeight: 600 }}>{data.invoiceDate}</span>
             </div>
             <div
               style={{
@@ -613,8 +626,8 @@ export const InvoiceCanvas = forwardRef<
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ fontWeight: "bold" }}>Due Date:</span>
-              <span style={{ fontWeight: "bold" }}>{data.dueDate}</span>
+              <span style={{ fontWeight: 500 }}>Due Date:</span>
+              <span style={{ fontWeight: 600 }}>{data.dueDate}</span>
             </div>
             <div
               style={{
@@ -622,15 +635,15 @@ export const InvoiceCanvas = forwardRef<
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ fontWeight: "bold" }}>Place of Supply:</span>
-              <span style={{ fontWeight: "bold" }}>{data.placeOfSupply}</span>
+              <span style={{ fontWeight: 500 }}>Place of Supply:</span>
+              <span style={{ fontWeight: 600 }}>{data.placeOfSupply}</span>
             </div>
             {data.dispatchFrom && (
               <>
                 <div
                   style={{
                     marginBottom: "1px",
-                    fontWeight: "bold",
+                    fontWeight: 500,
                   }}
                 >
                   <span>Dispatch From:</span>
@@ -638,7 +651,7 @@ export const InvoiceCanvas = forwardRef<
                 <div
                   style={{
                     marginTop: "2px",
-                    fontSize: "13px",
+                    fontSize: "12px",
                   }}
                 >
                   {data.dispatchFrom}
@@ -651,7 +664,7 @@ export const InvoiceCanvas = forwardRef<
                 <div
                   style={{
                     marginBottom: "1px",
-                    fontWeight: "bold",
+                    fontWeight: 500,
                   }}
                 >
                   <span>Shipping Address:</span>
@@ -659,7 +672,7 @@ export const InvoiceCanvas = forwardRef<
                 <div
                   style={{
                     marginTop: "2px",
-                    fontSize: "13px",
+                    fontSize: "12px",
                   }}
                 >
                   {data.shippingAddress}
@@ -674,11 +687,9 @@ export const InvoiceCanvas = forwardRef<
 
   const below_table_blocks = useMemo(() => {
     return [
-      <div style={{ borderBottom: "1px solid #000000", padding: "4px" }}>
-        <div style={{ fontSize: "13px" }}>
-          <span style={{ fontWeight: "bold" }}>
-            Amount Chargeable (in words):{" "}
-          </span>
+      <div style={{ borderBottom: "1px solid #000000", paddingLeft: "4px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 500 }}>
+          <span>Amount Chargeable (in words): </span>
           {data.amountInWords}
         </div>
       </div>,
@@ -687,7 +698,7 @@ export const InvoiceCanvas = forwardRef<
           style={{
             width: "100%",
             borderCollapse: "collapse",
-            fontSize: "13px",
+            fontSize: "12px",
             lineHeight: "1.2",
           }}
         >
@@ -699,7 +710,7 @@ export const InvoiceCanvas = forwardRef<
                   padding: "4px",
                   paddingTop: "2px",
                   paddingBottom: "0px",
-                  fontWeight: "bold",
+                  fontWeight: 500,
                   width: "200px",
                   textAlign: "left",
                 }}
@@ -712,7 +723,7 @@ export const InvoiceCanvas = forwardRef<
                   padding: "4px",
                   paddingTop: "2px",
                   paddingBottom: "0px",
-                  fontWeight: "bold",
+                  fontWeight: 500,
                   width: "140px",
                   textAlign: "right",
                 }}
@@ -728,7 +739,7 @@ export const InvoiceCanvas = forwardRef<
               <th
                 style={{
                   padding: "2px",
-                  fontWeight: "bold",
+                  fontWeight: 500,
                   textAlign: "center",
                   width: "200px",
                 }}
@@ -744,7 +755,7 @@ export const InvoiceCanvas = forwardRef<
                   borderRight: "1px solid #000",
                   borderTop: "1px solid #000",
                   padding: "2px",
-                  fontWeight: "bold",
+                  fontWeight: 500,
                   textAlign: "center",
                   width: "100px",
                 }}
@@ -756,7 +767,7 @@ export const InvoiceCanvas = forwardRef<
                   borderRight: "1px solid #000",
                   borderTop: "1px solid #000",
                   padding: "2px",
-                  fontWeight: "bold",
+                  fontWeight: 500,
                   textAlign: "center",
                   width: "100px",
                 }}
@@ -768,7 +779,7 @@ export const InvoiceCanvas = forwardRef<
                   borderRight: "1px solid #000",
                   borderTop: "1px solid #000",
                   padding: "2px",
-                  fontWeight: "bold",
+                  fontWeight: 500,
                   textAlign: "center",
                   width: "100px",
                 }}
@@ -780,7 +791,7 @@ export const InvoiceCanvas = forwardRef<
                   borderRight: "1px solid #000",
                   borderTop: "1px solid #000",
                   padding: "2px",
-                  fontWeight: "bold",
+                  fontWeight: 500,
                   textAlign: "center",
                   width: "100px",
                 }}
@@ -790,7 +801,7 @@ export const InvoiceCanvas = forwardRef<
               <th
                 style={{
                   padding: "2px",
-                  fontWeight: "bold",
+                  fontWeight: 500,
                 }}
               ></th>
             </tr>
@@ -807,7 +818,7 @@ export const InvoiceCanvas = forwardRef<
                 <td
                   style={{
                     paddingRight: "1px",
-                    fontWeight: "bold",
+                    fontWeight: 500,
                     textAlign: "right",
                   }}
                 >
@@ -818,24 +829,30 @@ export const InvoiceCanvas = forwardRef<
             <tr
               style={{
                 borderTop: "1px solid #000",
-                fontWeight: "bold",
-                fontSize: "15px",
+                fontWeight: 600,
+                fontSize: "12px",
               }}
             >
               <td style={tdRight}>TOTAL</td>
-              <td style={tdRight}>{data.taxableAmount.toFixed(2)}</td>
-              <td style={tdCenter}></td>
-              <td style={tdCenter}>{data.totalCentralTax.toFixed(2)}</td>
-              <td style={tdCenter}></td>
-              <td style={tdCenter}>{data.totalStateTax.toFixed(2)}</td>
+              <td style={{ ...tdRight, fontWeight: 600 }}>
+                {formatAmount(data.taxableAmount)}
+              </td>
+              <td style={{ ...tdCenter, fontWeight: 600 }}></td>
+              <td style={{ ...tdCenter, fontWeight: 600 }}>
+                {formatAmount(data.totalCentralTax)}
+              </td>
+              <td style={{ ...tdCenter, fontWeight: 600 }}></td>
+              <td style={{ ...tdCenter, fontWeight: 600 }}>
+                {formatAmount(data.totalStateTax)}
+              </td>
               <td
                 style={{
                   paddingRight: "4px",
-                  fontWeight: "bold",
+                  fontWeight: 600,
                   textAlign: "right",
                 }}
               >
-                {data.totalTaxAmount.toFixed(2)}
+                {formatAmount(data.totalTaxAmount)}
               </td>
             </tr>
           </tbody>
@@ -846,7 +863,7 @@ export const InvoiceCanvas = forwardRef<
           <div
             style={{
               borderBottom: "1px solid #000000",
-              padding: "4px",
+              paddingRight: "4px",
               display: "flex",
               justifyContent: "flex-end",
               alignItems: "center",
@@ -857,9 +874,8 @@ export const InvoiceCanvas = forwardRef<
                 style={{
                   display: "flex",
                   alignItems: "end",
-                  fontWeight: "bold",
-                  fontSize: "14px",
-                  marginBottom: "4px",
+                  fontWeight: 600,
+                  fontSize: "12px",
                   justifyContent: "flex-end",
                 }}
               >
@@ -876,9 +892,9 @@ export const InvoiceCanvas = forwardRef<
                 />
                 Amount Paid
               </div>
-              <div style={{ fontSize: "13px", fontWeight: "bold" }}>
-                ₹{data.totalAmount.toFixed(2)} Paid via {data.paymentMethod} on{" "}
-                {data.paymentDate}
+              <div style={{ fontSize: "12px", fontWeight: 600 }}>
+                ₹{formatAmount(data.totalAmount)} Paid via {data.paymentMethod}{" "}
+                on {data.paymentDate}
               </div>
             </div>
           </div>
@@ -895,10 +911,16 @@ export const InvoiceCanvas = forwardRef<
               paddingBottom: "1px",
             }}
           >
-            <div style={{ fontSize: "13px" }}>
+            <div style={{ fontSize: "12px" }}>
               {data?.bankName && (
                 <>
-                  <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 500,
+                      marginBottom: "4px",
+                    }}
+                  >
                     Bank Details:
                   </div>
                   <div style={{ display: "flex" }}>
@@ -918,28 +940,25 @@ export const InvoiceCanvas = forwardRef<
                     </div>
                     <div>
                       <div style={{ marginBottom: "1px" }}>
-                        <span style={{ fontWeight: "bold" }}>
+                        <span style={{ fontWeight: 600 }}>
                           {" "}
                           {data.bankName}
                         </span>
                       </div>
                       <div style={{ marginBottom: "1px" }}>
-                        <span style={{ fontWeight: "bold" }}>
+                        <span style={{ fontWeight: 600 }}>
                           {" "}
                           {data.accountNumber}
                         </span>
                       </div>
                       <div style={{ marginBottom: "1px" }}>
-                        <span style={{ fontWeight: "bold" }}>
+                        <span style={{ fontWeight: 600 }}>
                           {" "}
                           {data.ifscCode}
                         </span>
                       </div>
                       <div style={{ marginBottom: "8px" }}>
-                        <span style={{ fontWeight: "bold" }}>
-                          {" "}
-                          {data.branch}
-                        </span>
+                        <span style={{ fontWeight: 600 }}> {data.branch}</span>
                       </div>
                     </div>
                   </div>
@@ -947,7 +966,13 @@ export const InvoiceCanvas = forwardRef<
               )}
               {data.paymentNotes && (
                 <>
-                  <div style={{ fontWeight: "bold", marginBottom: "1px" }}>
+                  <div
+                    style={{
+                      fontWeight: 500,
+                      marginBottom: "1px",
+                      fontSize: "10px",
+                    }}
+                  >
                     Notes:
                   </div>
                   <div style={{ fontSize: "10px" }}>{data.paymentNotes}</div>
@@ -962,7 +987,7 @@ export const InvoiceCanvas = forwardRef<
               display: "flex",
               width: "20%",
               padding: "8px",
-              paddingBottom: "1px",
+              paddingBottom: "4px",
               paddingTop: "1px",
               textAlign: "left",
               borderRight: "1px solid #000000",
@@ -971,16 +996,28 @@ export const InvoiceCanvas = forwardRef<
               alignItems: "left",
             }}
           >
-            <div style={{ fontSize: "13px", marginBottom: "2px" }}>
+            <div
+              style={{ fontSize: "12px", marginBottom: "2px", fontWeight: 500 }}
+            >
               Pay using UPI:
             </div>
-            <QRCodeSVG value={data.qrcode} size={120} />
+            <QRCodeSVG value={data.qrcode} size={100} />
           </div>
 
           {/* Signature */}
-          <div style={{ width: "40%", padding: "8px", paddingBottom: "1px" }}>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ marginBottom: "8px" }}>For {data.companyName}</div>
+          <div
+            style={{ width: "40%", paddingRight: "8px", paddingBottom: "1px" }}
+          >
+            <div
+              style={{
+                textAlign: "right",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <div style={{ marginBottom: "1px", fontSize: "14px" }}>
+                For {data.companyName}
+              </div>
               <div
                 style={{
                   display: "flex",
@@ -990,6 +1027,7 @@ export const InvoiceCanvas = forwardRef<
               >
                 <div
                   style={{
+                    flex: 1,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1023,7 +1061,7 @@ export const InvoiceCanvas = forwardRef<
         </div>
       </div>,
       <div style={{ padding: "8px", fontSize: "10px" }}>
-        <div style={{ fontWeight: "bold", marginBottom: "1px" }}>
+        <div style={{ fontWeight: 600, marginBottom: "1px" }}>
           Terms and Conditions:
         </div>
         <div style={{ marginBottom: "1px" }}>{data.notes}</div>
@@ -1067,7 +1105,7 @@ export const InvoiceCanvas = forwardRef<
             padding: "4px 4px",
             textAlign: "left",
             width: "4%",
-            fontWeight: "bold",
+            fontWeight: 500,
           }}
         >
           #
@@ -1077,7 +1115,7 @@ export const InvoiceCanvas = forwardRef<
             borderRight: "1px solid #000000",
             padding: "4px 4px",
             textAlign: "left",
-            fontWeight: "bold",
+            fontWeight: 500,
             width: "38%",
           }}
         >
@@ -1089,7 +1127,7 @@ export const InvoiceCanvas = forwardRef<
             padding: "4px 4px",
             textAlign: "right",
             width: "12%",
-            fontWeight: "bold",
+            fontWeight: 500,
           }}
         >
           HSN/SAC
@@ -1100,7 +1138,7 @@ export const InvoiceCanvas = forwardRef<
             padding: "4px 4px",
             textAlign: "right",
             width: "10%",
-            fontWeight: "bold",
+            fontWeight: 500,
           }}
         >
           Tax
@@ -1111,7 +1149,7 @@ export const InvoiceCanvas = forwardRef<
             padding: "4px 4px",
             textAlign: "right",
             width: "11%",
-            fontWeight: "bold",
+            fontWeight: 500,
           }}
         >
           Qty
@@ -1122,7 +1160,7 @@ export const InvoiceCanvas = forwardRef<
             padding: "4px 4px",
             textAlign: "right",
             width: "12%",
-            fontWeight: "bold",
+            fontWeight: 500,
           }}
         >
           Rate/Item
@@ -1132,7 +1170,7 @@ export const InvoiceCanvas = forwardRef<
             padding: "4px 4px",
             textAlign: "right",
             width: "13%",
-            fontWeight: "bold",
+            fontWeight: 500,
           }}
         >
           Amount
@@ -1143,11 +1181,17 @@ export const InvoiceCanvas = forwardRef<
 
   // Represents a single row. We'll use this for measurement.
   const TableRow = ({ row }) => (
-    <tr style={{ height: "1px", lineHeight: 0.8 }}>
+    <tr style={{ height: "1px", lineHeight: 0.6 }}>
       <td style={{ borderRight: "1px solid #000", padding: "4px" }}>
         {row.id}
       </td>
-      <td style={{ borderRight: "1px solid #000", padding: "4px" }}>
+      <td
+        style={{
+          borderRight: "1px solid #000",
+          padding: "4px",
+          fontWeight: 600,
+        }}
+      >
         {row.name}
       </td>
       <td
@@ -1164,6 +1208,7 @@ export const InvoiceCanvas = forwardRef<
           borderRight: "1px solid #000",
           padding: "4px",
           textAlign: "right",
+          fontWeight: 600,
         }}
       >
         {row.tax}
@@ -1182,12 +1227,13 @@ export const InvoiceCanvas = forwardRef<
           borderRight: "1px solid #000",
           padding: "4px",
           textAlign: "right",
+          fontWeight: 600,
         }}
       >
-        {row.ratePerItem}
+        {formatAmount(row.ratePerItem)}
       </td>
       <td style={{ padding: "4px", textAlign: "right" }}>
-        {row.amount.toFixed(2)}
+        {formatAmount(row.amount)}
       </td>
     </tr>
   );
@@ -1213,7 +1259,7 @@ export const InvoiceCanvas = forwardRef<
             paddingBottom: "0px",
             textAlign: "right",
             borderRight: "1px solid #000000",
-            fontWeight: "bold",
+            fontWeight: 600,
           }}
         >
           <div
@@ -1300,23 +1346,25 @@ export const InvoiceCanvas = forwardRef<
               <div style={{ paddingBottom: "10px" }}>
                 {data.additionalCharges.map((charge, idx) => (
                   <div key={idx} style={{ marginBottom: "1px" }}>
-                    {parseFloat(charge.price).toFixed(2)}
+                    {formatAmount(parseFloat(charge.price))}
                   </div>
                 ))}
               </div>
             )}
-            {data?.tds?.enabled && <div>{data?.tds.amount.toFixed(2)}</div>}
+            {data?.tds?.enabled && <div>{formatAmount(data?.tds.amount)}</div>}
             {data?.tdsUnderGst?.enabled && (
-              <div>-{data?.tdsUnderGst.amount.toFixed(2)}</div>
+              <div>-{formatAmount(data?.tdsUnderGst.amount)}</div>
             )}
-            {data?.tcs?.enabled && <div>-{data?.tcs.amount.toFixed(2)}</div>}
+            {data?.tcs?.enabled && <div>-{formatAmount(data?.tcs.amount)}</div>}
             {data.globalDiscount && (
-              <div>-{data.globalDiscount.toFixed(2)}</div>
+              <div>-{formatAmount(data.globalDiscount)}</div>
             )}
             {data.additionalDiscount && (
-              <div>-{data.additionalDiscount.toFixed(2)}</div>
+              <div>-{formatAmount(data.additionalDiscount)}</div>
             )}
-            {data.totalDiscount && <div>-{data.totalDiscount.toFixed(2)}</div>}
+            {data.totalDiscount && (
+              <div>-{formatAmount(data.totalDiscount)}</div>
+            )}
           </div>
         </td>
       </tr>
@@ -1325,35 +1373,35 @@ export const InvoiceCanvas = forwardRef<
       <tr
         style={{
           borderTop: "1px solid #000",
-          fontWeight: "bold",
-          fontSize: "15px",
-          height: "2px",
+          fontWeight: 600,
+          fontSize: "14px",
+          height: "1px",
         }}
       >
-        <td style={{ borderRight: "1px solid #000", padding: "4px" }}></td>
+        <td style={{ borderRight: "1px solid #000", paddingRight: "4px" }}></td>
         <td
           style={{
             borderRight: "1px solid #000",
-            padding: "4px",
+            paddingRight: "4px",
             textAlign: "right",
           }}
         >
           Total
         </td>
-        <td style={{ borderRight: "1px solid #000", padding: "4px" }}></td>
-        <td style={{ borderRight: "1px solid #000", padding: "4px" }}></td>
+        <td style={{ borderRight: "1px solid #000", paddingRight: "4px" }}></td>
+        <td style={{ borderRight: "1px solid #000", paddingRight: "4px" }}></td>
         <td
           style={{
             borderRight: "1px solid #000",
-            padding: "4px",
+            paddingRight: "4px",
             textAlign: "right",
           }}
         >
           {data.totalQuantity}.000
         </td>
-        <td style={{ borderRight: "1px solid #000", padding: "4px" }}></td>
-        <td style={{ padding: "4px", textAlign: "right" }}>
-          ₹{data.totalAmount.toFixed(2)}
+        <td style={{ borderRight: "1px solid #000", paddingRight: "4px" }}></td>
+        <td style={{ paddingRight: "4px", textAlign: "right" }}>
+          ₹{formatAmount(data.totalAmount)}
         </td>
       </tr>
     </>
@@ -1365,7 +1413,7 @@ export const InvoiceCanvas = forwardRef<
   ) => (
     <div style={{ flex: 1, display: "flex", borderBottom: "1px solid #000" }}>
       <table
-        style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}
+        style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}
       >
         <TableHeader />
         <tbody>
@@ -1508,7 +1556,7 @@ export const InvoiceCanvas = forwardRef<
           flexDirection="column"
           justifyContent="center"
           alignItems="center"
-          height="100vh"
+          height="80vh"
         >
           <CircularProgress />
           <div style={{ marginTop: 16, fontSize: 16 }}>
@@ -1532,7 +1580,7 @@ export const InvoiceCanvas = forwardRef<
               backgroundColor: "#fff",
               color: "#000",
               margin: "0 auto",
-              padding: "20px 40px 40px",
+              padding: "25px 40px 65px 40px",
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
@@ -1551,8 +1599,8 @@ export const InvoiceCanvas = forwardRef<
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <h1
                   style={{
-                    fontSize: "18px",
-                    fontWeight: "bold",
+                    fontSize: "14px",
+                    fontWeight: 500,
                     letterSpacing: "0.10em",
                     color: "blue",
                   }}
@@ -1560,8 +1608,18 @@ export const InvoiceCanvas = forwardRef<
                   TAX INVOICE
                 </h1>
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                ORIGINAL FOR RECIPIENT
+              <div
+                style={{
+                  fontWeight: 400,
+                  fontSize: "11px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                  letterSpacing: "0.01em",
+                  textAlign: "right",
+                }}
+              >
+                <p>ORIGINAL FOR RECIPIENT</p>
               </div>
             </div>
 
@@ -1586,11 +1644,10 @@ export const InvoiceCanvas = forwardRef<
                 borderBottom: "1px solid #000000",
                 borderRight: "2px solid #000",
                 borderLeft: "2px solid #000",
-                padding: "4px",
+                padding: "1px",
                 fontSize: "10px",
                 textAlign: "center",
                 flexShrink: 0,
-                height: "30px", // Fixed footer height
               }}
             >
               Page {i + 1}/{totalPages} • This is a digitally signed document.

@@ -1,23 +1,29 @@
-import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { XMarkIcon } from '@heroicons/react/24/outline'
-import Button from './Button'
+import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import Button from "./Button";
 
 interface ModalProps {
-  isOpen: boolean
-  onClose: () => void
-  title: string
-  children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  size?: "sm" | "md" | "lg" | "xl";
 }
 
-export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = "md",
+}: ModalProps) {
   const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-  }
+    sm: "max-w-md",
+    md: "max-w-lg",
+    lg: "max-w-2xl",
+    xl: "max-w-4xl",
+  };
 
   return (
     <AnimatePresence>
@@ -28,10 +34,10 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+              className="fixed inset-0 bg-black bg-opacity-50 transition-opacity backdrop-blur-[2px]"
               onClick={onClose}
             />
-            
+
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -52,14 +58,12 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
                   <XMarkIcon className="h-5 w-5" />
                 </Button>
               </div>
-              
-              <div className="p-6">
-                {children}
-              </div>
+
+              <div>{children}</div>
             </motion.div>
           </div>
         </div>
       )}
     </AnimatePresence>
-  )
+  );
 }

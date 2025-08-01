@@ -114,7 +114,7 @@ const Switch: React.FC<SwitchProps> = ({
 
   if (label || description) {
     return (
-      <div className="flex items-start space-x-3">
+      <div className="flex items-center space-x-3">
         <div className="flex-1 min-w-0">
           {label && (
             <label

@@ -410,11 +410,11 @@ export class InvoiceService {
       customer.name,
       customer.email,
       customer.phone,
-      customer.address,
-      customer.city,
-      customer.state,
-      customer.country,
-      customer.gstin || "",
+      JSON.stringify(customer.companyDetails),
+      JSON.stringify(customer.billingAddress),
+      JSON.stringify(customer.shippingAddress),
+      JSON.stringify(customer.other),
+      JSON.stringify(customer.account),
       customer.createdAt,
       customer.status,
     ];
@@ -435,22 +435,17 @@ export class InvoiceService {
         return [];
       }
 
-      // const [headers, ...rows] = data
-      // if (!rows || rows.length === 0) {
-      //   return []
-      // }
-
       return data
         .map((row) => ({
           id: row[0] || "",
           name: row[1] || "",
           email: row[2] || "",
           phone: row[3] || "",
-          address: row[4] || "",
-          city: row[5] || "",
-          state: row[6] || "",
-          country: row[7] || "India",
-          gstin: row[8] || "",
+          companyDetails: row[4] ? JSON.parse(row[4]) : null,
+          billingAddress: row[5] ? JSON.parse(row[5]) : null,
+          shippingAddress: row[6] ? JSON.parse(row[6]) : null,
+          other: row[7] ? JSON.parse(row[7]) : null,
+          account: row[8] ? JSON.parse(row[8]) : null,
           createdAt: row[9] || "",
           status: (row[10] as Customer["status"]) || "Active",
         }))
@@ -475,17 +470,17 @@ export class InvoiceService {
     const updatedCustomer = { ...customers[customerIndex], ...updates };
 
     const row = [
-      updatedCustomer.id,
-      updatedCustomer.name,
-      updatedCustomer.email,
-      updatedCustomer.phone,
-      updatedCustomer.address,
-      updatedCustomer.city,
-      updatedCustomer.state,
-      updatedCustomer.country,
-      updatedCustomer.gstin || "",
-      updatedCustomer.createdAt,
-      updatedCustomer.status,
+      updates.id,
+      updates.name,
+      updates.email,
+      updates.phone,
+      JSON.stringify(updates.companyDetails),
+      JSON.stringify(updates.billingAddress),
+      JSON.stringify(updates.shippingAddress),
+      JSON.stringify(updates.other),
+      JSON.stringify(updates.account),
+      updates.createdAt,
+      updates.status,
     ];
 
     const rowNumber = customerIndex + 2;

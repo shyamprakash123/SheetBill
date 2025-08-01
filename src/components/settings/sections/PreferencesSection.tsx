@@ -5,7 +5,7 @@ import SettingsHeader from "../SettingsHeader";
 import Card from "../../ui/Card";
 import toast from "react-hot-toast";
 import { useInvoiceStore } from "../../../store/invoice";
-import { DefaultDueDaysField } from "../../ui/DefaultDueDaysComponent";
+import DefalultDueDaysComponent from "../../ui/DefaultDueDaysComponent";
 import {
   PrefixSettings,
   PrefixSettingsForm,
@@ -169,7 +169,7 @@ export default function PreferencesSection() {
                   <option value={90}>90 Days</option>
                 </select>
               </div> */}
-              <DefaultDueDaysField
+              <DefalultDueDaysComponent
                 value={formData.defaultDueDays}
                 onChange={(val) => handleInputChange("defaultDueDays", val)}
               />
