@@ -27,6 +27,26 @@ interface InvoiceFormProps {
   loading?: boolean;
 }
 
+const formatCurrency = (amount) => {
+  const formatter = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  });
+
+  // Get an array of the formatted parts (e.g., [{type: 'currency', value: '₹'}, {type: 'integer', value: '50,000'}])
+  const parts = formatter.formatToParts(amount || 0);
+
+  // Find the currency symbol and add a space, then join the parts back together
+  return parts
+    .map((part) => {
+      if (part.type === "currency") {
+        return `${part.value} `; // Add the space here
+      }
+      return part.value;
+    })
+    .join("");
+};
+
 export default function InvoiceForm({
   invoice,
   customers,

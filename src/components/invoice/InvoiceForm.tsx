@@ -124,7 +124,7 @@ function getFullShippingAddress(details: CompanyDetails[]): string {
     details.shipping_address?.trim(),
     details.shipping_city?.trim(),
     details.shipping_state?.trim(),
-    details.shipping_pincode?.trim(),
+    details.shipping_pincode,
     details.shipping_country?.trim(),
   ];
 
@@ -141,15 +141,19 @@ function getFullShippingAddress(details: CompanyDetails[]): string {
 
 function formatCustomerList(customers: Customer[]): string {
   return customers.map((customer, index) => {
-    const { id, name, gstin, phone, email } = customer;
+    const { id, name, companyDetails, phone, email, ...other } = customer;
 
     return {
       value: `${name}`,
-      description: `${gstin ? `GSTIN: ${gstin}` : null}`,
-      gstin,
+      description: `${
+        companyDetails.gstin ? `GSTIN: ${companyDetails.gstin}` : null
+      }`,
+      gstin: companyDetails.gstin,
       phone,
       email,
       id: id,
+      balance: formatCurrency(other?.account?.balance),
+      other,
     };
   });
 }
@@ -170,9 +174,11 @@ function formatCustomerAddress(
   if (selectedCustomer) {
     return customers.map((customer, index) => {
       if (customer.id === selectedCustomer.id) {
-        const { id, address, city, state } = customer;
-
-        return { value: `${address} \n ${city} \n ${state}`, id: id };
+        const { id, line1, line2, city, state } = customer?.shippingAddress;
+        return {
+          value: `${line1} , ${line2} \n ${city} \n ${JSON.parse(state).name}`,
+          id: 1,
+        };
       } else {
         return null;
       }
@@ -192,9 +198,32 @@ function getCustomerShippingAddress(
 
   if (!customer) return null;
 
-  const { id, address, city, state } = customer;
-  return { value: `${address} \n ${city} \n ${state}`, id: id };
+  const { id, line1, line2, city, state } = customer?.shippingAddress;
+  return {
+    value: `${line1} , ${line2} \n ${city} \n ${JSON.parse(state).name}`,
+    id: 1,
+  };
 }
+
+const formatCurrency = (amount) => {
+  const formatter = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  });
+
+  // Get an array of the formatted parts (e.g., [{type: 'currency', value: '₹'}, {type: 'integer', value: '50,000'}])
+  const parts = formatter.formatToParts(amount || 0);
+
+  // Find the currency symbol and add a space, then join the parts back together
+  return parts
+    .map((part) => {
+      if (part.type === "currency") {
+        return `${part.value} `; // Add the space here
+      }
+      return part.value;
+    })
+    .join("");
+};
 
 function formatProductsList(products: Product[]): string {
   return products.map((product, index) => {

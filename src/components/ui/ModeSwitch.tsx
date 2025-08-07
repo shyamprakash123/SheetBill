@@ -22,21 +22,21 @@ export default function ModeSwitch({
         <div
           className={`absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ${
             value === "debit"
-              ? "left-1 bg-green-700"
-              : "left-[calc(50%)] bg-red-700"
+              ? "left-1 bg-red-700"
+              : "left-[calc(50%)] bg-green-700"
           }`}
         />
         {/* Labels */}
         <div
           className={`z-10 w-1/2 text-center font-semibold text-sm ${
-            value === "debit" ? "text-white" : "text-green-700"
+            value === "debit" ? "text-white" : "text-red-700"
           }`}
         >
           Debit
         </div>
         <div
           className={`z-10 w-1/2 text-center font-semibold text-sm ${
-            value === "credit" ? "text-white" : "text-red-700"
+            value === "credit" ? "text-white" : "text-green-700"
           }`}
         >
           Credit

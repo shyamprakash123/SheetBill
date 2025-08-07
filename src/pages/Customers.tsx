@@ -27,8 +27,26 @@ import StateDropdown, { gstStates } from "../components/ui/StateDropDown";
 import Switch from "../components/ui/Switch";
 import ModeSwitch from "../components/ui/ModeSwitch";
 import OptionsPopup from "../components/ui/OptionsPopup";
-import { Edit3, Eye, Trash2 } from "lucide-react";
+import Avatar from "../components/Avatar";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  Edit3,
+  ExternalLink,
+  Eye,
+  FileText,
+  Filter,
+  RefreshCw,
+  Share,
+  Trash2,
+  X,
+} from "lucide-react";
 import DefalultDueDaysComponent from "../components/ui/DefaultDueDaysComponent";
+import { Customer } from "../types/invoice";
+import { CustomerLedger } from "../lib/backend-service";
+import { format } from "date-fns/format";
 
 const initialCustomerState = {
   name: "",
@@ -74,10 +92,35 @@ const initialCustomerState = {
 };
 
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat("en-IN", {
+  const formatter = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-  }).format(amount || 0);
+  });
+
+  // Get an array of the formatted parts (e.g., [{type: 'currency', value: '₹'}, {type: 'integer', value: '50,000'}])
+  const parts = formatter.formatToParts(amount || 0);
+
+  // Find the currency symbol and add a space, then join the parts back together
+  return parts
+    .map((part) => {
+      if (part.type === "currency") {
+        return `${part.value} `; // Add the space here
+      }
+      return part.value;
+    })
+    .join("");
+};
+
+const getStatusColor = (status, balance) => {
+  if (balance === "0") return "text-gray-800 dark:text-gray-400";
+  switch (status) {
+    case "debit":
+      return "text-red-600 dark:text-red-400";
+    case "credit":
+      return "text-green-500 dark:text-green-400";
+    default:
+      return "text-gray-800 dark:text-gray-400";
+  }
 };
 
 function extractPANFromGSTIN(gstin) {
@@ -109,6 +152,8 @@ const FormInput = React.memo(
     isCopyCustomer = false,
     onCopyCustomer,
     accountType = "debit",
+    onKeyDown,
+    onPaste,
   }) => (
     <div className="mb-4">
       {/* Label */}
@@ -134,6 +179,8 @@ const FormInput = React.memo(
           type={type}
           name={name}
           min={0}
+          onKeyDown={onKeyDown ?? null}
+          onPaste={onPaste ?? null}
           value={value || ""}
           onChange={onChange}
           placeholder={placeholder}
@@ -185,7 +232,7 @@ const FormInput = React.memo(
           <p
             className={clsx(
               `absolute right-4 top-1/2 -translate-y-1/2 h-full px-6 text-base  ${
-                accountType === "debit" ? "text-green-800" : "text-red-800"
+                accountType === "debit" ? "text-red-800" : "text-green-800"
               }  font-semibold rounded-r-lg items-center flex disabled:opacity-50 disabled:cursor-not-allowed`
             )}
           >
@@ -361,11 +408,15 @@ const CustomerFormModal = React.memo(
     const handleNestedChange = useCallback(
       (section) => (e) => {
         const { name, value, type, checked } = e.target;
+
+        const cleanedValue =
+          type === "button" ? checked : value.replace(/[+-]/g, "");
+
         setCustomer((prev) => ({
           ...prev,
           [section]: {
             ...prev[section],
-            [name]: type === "button" ? checked : value,
+            [name]: cleanedValue,
           },
         }));
       },
@@ -390,6 +441,19 @@ const CustomerFormModal = React.memo(
           [name]: checked,
         },
       }));
+    };
+
+    const blockPlusMinus = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "+" || e.key === "-") {
+        e.preventDefault();
+      }
+    };
+
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+      const paste = e.clipboardData.getData("text");
+      if (/[+-]/.test(paste)) {
+        e.preventDefault();
+      }
     };
 
     const handleFormSubmit = useCallback(
@@ -470,6 +534,8 @@ const CustomerFormModal = React.memo(
                   onChange={handleChange}
                   placeholder="9876543210"
                   error={errors.phone}
+                  onKeyDown={blockPlusMinus}
+                  onPaste={handlePaste}
                 />
               </div>
             </FormSection>
@@ -663,6 +729,8 @@ const CustomerFormModal = React.memo(
                       onChange={handleAccountChange}
                       placeholder="e.g., ₹50000"
                       accountType={customer.account.type}
+                      onKeyDown={blockPlusMinus}
+                      onPaste={handlePaste}
                     />
                   </div>
                   <ModeSwitch
@@ -690,6 +758,8 @@ const CustomerFormModal = React.memo(
                     value={customer.other.credit_limit}
                     onChange={handleOtherChange}
                     placeholder="e.g., ₹50000"
+                    onKeyDown={blockPlusMinus}
+                    onPaste={handlePaste}
                   />
                   <DefalultDueDaysComponent
                     value={customer.other.default_due_date}
@@ -768,11 +838,407 @@ const CustomerFormModal = React.memo(
   }
 );
 
+const LedgerModal = React.memo(({ status, onClose }) => {
+  const [activeTab, setActiveTab] = useState("Ledger");
+  const [showPendingInvoices, setShowPendingInvoices] = useState(false);
+  const [ledgerData, setLedgerData] = useState<CustomerLedger[]>([]);
+
+  const tabs = ["Ledger", "Transactions", "Bill-Wise Transactions", "Activity"];
+
+  const { fetchCustomerLedger } = useInvoiceStore();
+
+  useEffect(() => {
+    // Define the async function inside the effect.
+    // Renamed to avoid shadowing the global `fetch`.
+    const fetchData = async () => {
+      try {
+        const data = await fetchCustomerLedger(status.customer.id);
+        setLedgerData(data);
+        console.log(data);
+      } catch (error) {
+        console.error("Failed to fetch customer ledger:", error);
+      }
+    };
+
+    // Only run the fetch logic if the ID is present.
+    if (status.customer?.id) {
+      fetchData();
+    }
+  }, [status.customer?.id]);
+
+  const transactions = [
+    {
+      id: "INV-21",
+      type: "Invoice",
+      date: "12-06-2025",
+      time: "12 Jun 25, 10:30 AM",
+      status: "pending",
+      statusText: "since 47 days",
+      mode: "",
+      amount: "2,69,600.00",
+      closingBalance: "3,23,600.00",
+      balanceColor: "text-red-600",
+    },
+    {
+      id: "PAYIN-26",
+      type: "Payment In",
+      date: "11-06-2025",
+      time: "11 Jun 25, 05:08 PM",
+      status: "",
+      statusText: "",
+      mode: "Net Banking",
+      amount: "1,50,000.00",
+      closingBalance: "54,000.00",
+      balanceColor: "text-red-600",
+    },
+    {
+      id: "INV-20",
+      type: "Invoice",
+      date: "09-06-2025",
+      time: "09 Jun 25, 08:41 AM",
+      status: "partially paid",
+      statusText: "since 54 days",
+      mode: "",
+      amount: "2,04,000.00",
+      closingBalance: "2,04,000.00",
+      balanceColor: "text-red-600",
+    },
+    {
+      id: "",
+      type: "Balance as of 01 Jan 2025",
+      date: "",
+      time: "",
+      status: "",
+      statusText: "",
+      mode: "",
+      amount: "0.00",
+      closingBalance: "0.00",
+      balanceColor: "text-green-600",
+    },
+  ];
+
+  return (
+    <Modal
+      isOpen={status.isOpen}
+      onClose={() => {
+        setLedgerData([]);
+        onClose();
+      }}
+      title={
+        status.customer?.companyDetails.companyName || status.customer?.name
+      }
+      size="xxl"
+    >
+      <div className="bg-gray-50 h-[80vh] rounded-xl">
+        {/* Navigation Tabs */}
+        {/* <div className="bg-white border-b border-gray-200 px-6">
+          <div className="flex space-x-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {tab}
+                {tab === "Activity" && (
+                  <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded">
+                    BETA
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div> */}
+
+        {/* Main Content */}
+        <div className="p-6">
+          {/* Company Info Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Avatar
+                  name={
+                    status.customer?.companyDetails.companyName ||
+                    status.customer?.name
+                  }
+                />
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {status.customer?.companyDetails.companyName ||
+                      status.customer?.name}
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    {status.customer?.name}{" "}
+                    <span>{status.customer?.phone}</span>
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm text-gray-600">
+                      {status.customer?.account.balance !== "" &&
+                        (status.customer?.account.type === "credit"
+                          ? "YOU PAY"
+                          : "YOU COLLECT")}
+                    </span>
+                    <p
+                      className={`flex px-2 py-1  text-lg font-semibold tracking-wide text-right ${getStatusColor(
+                        status.customer?.account.type || "debit",
+                        status.customer?.account?.balance || "0"
+                      )}`}
+                    >
+                      {formatCurrency(status.customer?.account.balance)}
+                    </p>
+                    <RefreshCw size={16} className="text-gray-400" />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100">
+                  <Share size={16} />
+                  Share
+                </button>
+                <div className="flex items-center">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-l-lg hover:bg-purple-100">
+                    <FileText size={16} />
+                    View PDF
+                  </button>
+                  <button className="px-2 py-2 bg-purple-50 text-purple-700 rounded-r-lg hover:bg-purple-100 border-l border-purple-200">
+                    <ChevronDown size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Date Range and Filters */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value="01-01-2025"
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    readOnly
+                  />
+                  <span className="text-gray-500">—</span>
+                  <input
+                    type="text"
+                    value="31-12-2025"
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    readOnly
+                  />
+                  <button className="p-2 text-gray-400 hover:text-gray-600">
+                    <Filter size={16} />
+                  </button>
+                </div>
+                <span className="text-sm text-gray-500">
+                  Showing data for This Year
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="pending"
+                  type="checkbox"
+                  checked={showPendingInvoices}
+                  onChange={(e) => setShowPendingInvoices(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="pending" className="text-sm text-gray-600">
+                  Show Pending Invoices
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Transactions Table */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Id #
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
+                      Date / Created Time
+                      <ChevronDown size={14} />
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Mode
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Closing Balance
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {ledgerData.map((ledger, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {ledger.document_id || ledger.ledger_id}
+                        </div>
+                        <div className="text-sm text-gray-500">Invoice</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {format(new Date(ledger.date), "dd-MM-yyyy")}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {format(ledger.date, "d MMM yy, h:mm aaa")
+                          .replace("am", "AM")
+                          .replace("pm", "PM")}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {ledger.status && (
+                        <div>
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              ledger.status === "pending"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : ledger.status === "partially paid"
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {ledger.status}
+                          </span>
+                          {ledger.statusText && (
+                            <div className="text-xs text-red-500 mt-1">
+                              {transaction.statusText}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {ledger.mode && (
+                        <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                          {transaction.mode}
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap ${
+                        ledger.amount < 0 ? "bg-red-50/60" : "bg-green-50/60"
+                      }`}
+                    >
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatCurrency(ledger.amount)}
+                      </div>
+                    </td>
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap ${
+                        ledger.balance < 0 ? "bg-red-50" : "bg-green-50"
+                      }`}
+                    >
+                      <div
+                        className={`text-sm font-semibold ${
+                          ledger.balance === 0
+                            ? "text-gray-900"
+                            : ledger.balance < 0
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        {formatCurrency(Math.abs(ledger.balance))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {ledger.ledger_id && (
+                        <div className="flex items-center gap-2">
+                          {ledger.status === "pending" && (
+                            <button className="text-red-500 hover:text-red-700">
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                          {ledger.type === "Payment In" && (
+                            <button className="text-yellow-600 hover:text-yellow-700">
+                              <Edit size={16} />
+                            </button>
+                          )}
+                          {ledger.type === "Payment Out" && (
+                            <button className="text-red-500 hover:text-red-700">
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                          <button className="text-gray-500 hover:text-gray-700">
+                            <Eye size={16} />
+                          </button>
+                          <button className="text-gray-500 hover:text-gray-700">
+                            <ExternalLink size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Bottom Actions and Pagination */}
+          <div className="flex items-center justify-between mt-6">
+            <div className="flex items-center gap-3">
+              <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                <span className="text-lg">↓</span>
+                You Got
+              </button>
+              <button className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                <span className="text-lg">↑</span>
+                You Gave
+              </button>
+            </div>
+            <div className="flex items-center gap-4">
+              <button className="p-2 text-gray-400 hover:text-gray-600">
+                <ChevronLeft size={20} />
+              </button>
+              <span className="px-3 py-1 bg-blue-600 text-white rounded">
+                1
+              </span>
+              <button className="p-2 text-gray-400 hover:text-gray-600">
+                <ChevronRight size={20} />
+              </button>
+              <div className="flex items-center gap-2 ml-4">
+                <select className="px-3 py-1 border border-gray-300 rounded text-sm">
+                  <option>10</option>
+                  <option>25</option>
+                  <option>50</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+});
+
 export default function Customers() {
   const { customers, fetchCustomers, createCustomer, updateCustomer, loading } =
     useInvoiceStore();
   const { profile } = useAuthStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showLedgerModal, setLedgerModal] = useState<{
+    isOpen: boolean;
+    customer: Customer | null;
+  }>({ isOpen: false, customer: null });
   const [showGoogleAuth, setShowGoogleAuth] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -898,6 +1364,10 @@ export default function Customers() {
     setErrors({});
   };
 
+  const handleLedgerCloseModal = () => {
+    setLedgerModal({ isOpen: false, customer: null });
+  };
+
   const handleGoogleAuthSuccess = async () => {
     setShowGoogleAuth(false);
     try {
@@ -956,17 +1426,6 @@ export default function Customers() {
       color: "bg-purple-500",
     },
   ];
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "debit":
-        return "text-green-600 dark:text-green-400";
-      case "credit":
-        return "text-red-500 dark:text-red-400";
-      default:
-        return "text-gray-800 dark:text-gray-400";
-    }
-  };
 
   if (loading && !customers.length) {
     return (
@@ -1091,7 +1550,8 @@ export default function Customers() {
                     {
                       label: "View",
                       icon: <Eye className="w-4 h-4" />,
-                      onClick: () => alert("View"),
+                      onClick: () =>
+                        setLedgerModal({ isOpen: true, customer: customer }),
                     },
                     {
                       label: "Edit",
@@ -1118,7 +1578,13 @@ export default function Customers() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
-                            <UserGroupIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            <Avatar
+                              name={
+                                customer?.companyDetails.companyName ||
+                                customer?.name
+                              }
+                              colour="blue"
+                            />
                           </div>
                           <div>
                             <div className="text-base font-medium text-gray-900 dark:text-white">
@@ -1179,14 +1645,16 @@ export default function Customers() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <p
                           className={`px-2 py-1 w-full text-base font-semibold tracking-wide text-right ${getStatusColor(
-                            customer.account.type || "debit"
+                            customer.account.type || "debit",
+                            customer.account?.balance || "0"
                           )}`}
                         >
                           {formatCurrency(customer.account.balance)}
                           <p className="text-[10px] font-medium">
-                            {customer.account.type === "debit"
-                              ? "You Pay↑"
-                              : "You Collect↓"}
+                            {customer.account.balance !== "" &&
+                              (customer.account.type === "credit"
+                                ? "You Pay↑"
+                                : "You Collect↓")}
                           </p>
                         </p>
                       </td>
@@ -1258,6 +1726,8 @@ export default function Customers() {
         loading={loading}
         errors={errors}
       />
+
+      <LedgerModal status={showLedgerModal} onClose={handleLedgerCloseModal} />
 
       <GoogleAuthModal
         isOpen={showGoogleAuth}

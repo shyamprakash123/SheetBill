@@ -37,6 +37,17 @@ export interface Customer {
   status: "Active" | "Inactive";
 }
 
+export interface CustomerLedger {
+  ledger_id: string;
+  customer_id: string;
+  document_id: string;
+  date: string;
+  status: string;
+  type: string;
+  amount: string;
+  balance: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -121,6 +132,25 @@ export interface Settings {
   banks: Partial<BankDetails>[];
 }
 
+function getUserEnteredValue(val: any) {
+  if (typeof val === "number") {
+    return { numberValue: val };
+  } else if (typeof val === "boolean") {
+    return { boolValue: val };
+  } else if (typeof val === "string") {
+    if (val.startsWith("=")) {
+      return { formulaValue: val };
+    }
+    const num = parseFloat(val);
+    if (!isNaN(num) && /^\d+(\.\d+)?$/.test(val)) {
+      return { numberValue: num };
+    }
+    return { stringValue: val };
+  } else {
+    return { stringValue: String(val) };
+  }
+}
+
 export class InvoiceService {
   private sheetsService: typeof googleSheetsSupabaseService;
   private spreadsheetId: string;
@@ -139,6 +169,58 @@ export class InvoiceService {
       ...invoiceData,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+    };
+
+    let ledgerData: Omit<CustomerLedger, "ledger_id" | "date">;
+    let ledgerData1: Omit<CustomerLedger, "ledger_id" | "date"> = {};
+
+    if (invoice.markedAsPaid) {
+      ledgerData = {
+        customer_id: invoice.customerId,
+        status: "paid",
+        type: "Invoice",
+        document_id: invoice.id,
+        amount: -invoice.total,
+        balance:
+          invoice.customer.other.account.type === "credit"
+            ? parseInt(invoice.customer.other.account.balance) - invoice.total
+            : -parseInt(invoice.customer.other.account.balance) - invoice.total,
+      };
+      ledgerData1 = {
+        customer_id: invoice.customerId,
+        status: "-",
+        type: "Invoice",
+        document_id: invoice.id,
+        amount: invoice.total,
+        balance:
+          invoice.customer.other.account.type === "credit"
+            ? parseInt(invoice.customer.other.account.balance)
+            : -parseInt(invoice.customer.other.account.balance),
+      };
+    } else {
+      ledgerData = {
+        customer_id: invoice.customerId,
+        status: "pending",
+        type: "Invoice",
+        document_id: invoice.id,
+        amount: -invoice.total,
+        balance:
+          invoice.customer.other.account.type === "credit"
+            ? parseInt(invoice.customer.other.account.balance) - invoice.total
+            : -parseInt(invoice.customer.other.account.balance) - invoice.total,
+      };
+    }
+
+    const ledger: CustomerLedger = {
+      ledger_id: `CUSTLED-${Date.now()}`,
+      ...ledgerData,
+      date: new Date().toISOString(),
+    };
+
+    const ledger1: CustomerLedger = {
+      ledger_id: `CUSTLED-${Date.now()}`,
+      ...ledgerData1,
+      date: new Date().toISOString(),
     };
 
     const row = [
@@ -175,12 +257,124 @@ export class InvoiceService {
       invoice.reference,
       invoice.createdAt,
       invoice.updatedAt,
+      ledger.ledger_id,
       invoice.pdfUrl || "",
     ];
+
+    const ledger_row = [
+      "=ROW()",
+      ledger.ledger_id,
+      ledger.customer_id,
+      ledger.document_id || "",
+      ledger.date,
+      ledger.status,
+      ledger.type || "",
+      ledger.amount,
+      ledger.balance,
+    ];
+
+    const ledger_row_paid = [
+      "=ROW()",
+      ledger1.ledger_id,
+      ledger1.customer_id,
+      ledger1.document_id || "",
+      ledger1.date,
+      ledger1.status,
+      ledger1.type || "",
+      ledger1.amount,
+      ledger1.balance,
+    ];
+
+    const sheetIds = await this.sheetsService.getSheetIdMap(this.spreadsheetId);
+
+    const requests = [
+      {
+        appendCells: {
+          sheetId: sheetIds["Invoices"],
+          rows: [
+            {
+              values: row.map((val) => ({
+                userEnteredValue: getUserEnteredValue(val),
+              })),
+            },
+          ],
+          fields: "*",
+        },
+      },
+      {
+        appendCells: {
+          sheetId: sheetIds["Customer_Ledgers"],
+          rows: invoice.markedAsPaid
+            ? [
+                {
+                  values: ledger_row.map((val) => ({
+                    userEnteredValue: getUserEnteredValue(val),
+                  })),
+                },
+                {
+                  values: ledger_row_paid.map((val) => ({
+                    userEnteredValue: getUserEnteredValue(val),
+                  })),
+                },
+              ]
+            : [
+                {
+                  values: ledger_row.map((val) => ({
+                    userEnteredValue: getUserEnteredValue(val),
+                  })),
+                },
+              ],
+
+          fields: "*",
+        },
+      },
+      {
+        updateCells: {
+          range: {
+            sheetId: sheetIds["Customers"],
+            startRowIndex: invoice?.customer?.other?.row_id - 1,
+            endRowIndex: invoice?.customer?.other?.row_id,
+            startColumnIndex: 9,
+            endColumnIndex: 10,
+          },
+          rows: [
+            {
+              values: [
+                {
+                  userEnteredValue: {
+                    stringValue: JSON.stringify({
+                      balance: invoice.markedAsPaid
+                        ? Math.abs(ledgerData1.balance)
+                        : Math.abs(ledgerData.balance),
+                      type: invoice.markedAsPaid
+                        ? ledgerData1.balance < 0
+                          ? "debit"
+                          : "credit"
+                        : ledgerData.balance < 0
+                        ? "debit"
+                        : "credit",
+                    }),
+                  },
+                },
+              ],
+            },
+          ],
+          fields: "*",
+        },
+      },
+    ];
+
+    const batchUpdateRes = await this.sheetsService.batchUpdateSheet(
+      this.spreadsheetId,
+      requests
+    );
 
     await this.sheetsService.appendToSheet(this.spreadsheetId, "Invoices!A2", [
       row,
     ]);
+
+    // console.log(invoice.customer);
+
     return invoice;
   }
 
@@ -245,7 +439,8 @@ export class InvoiceService {
           reference: row[30] || null,
           createdAt: row[31] || "",
           updatedAt: row[32] || "",
-          pdfUrl: row[33] || "",
+          ledger_id: row[33] || "",
+          pdfUrl: row[34] || "",
         }))
         .filter((invoice) => invoice.id); // Filter out empty rows
     } catch (error) {
@@ -318,7 +513,8 @@ export class InvoiceService {
         reference: row[30] || null,
         createdAt: row[31] || "",
         updatedAt: row[32] || "",
-        pdfUrl: row[33] || "",
+        ledger_id: row[33] || "",
+        pdfUrl: row[34] || "",
       };
 
       return invoice;
@@ -371,6 +567,7 @@ export class InvoiceService {
       invoice.reference,
       invoice.createdAt,
       invoice.updatedAt,
+      invoice.ledger_id,
       invoice.pdfUrl || "",
     ];
 
@@ -406,6 +603,7 @@ export class InvoiceService {
     };
 
     const row = [
+      "=ROW()",
       customer.id,
       customer.name,
       customer.email,
@@ -422,6 +620,21 @@ export class InvoiceService {
     await this.sheetsService.appendToSheet(this.spreadsheetId, "Customers!A2", [
       row,
     ]);
+
+    const baseBalance = customer?.account?.balance ?? 0;
+
+    // Determine the final numeric values
+    const transactionAmount =
+      customer.account.type === "debit" ? -baseBalance : +baseBalance;
+
+    await this.createCustomerLedger({
+      customer_id: customer.id,
+      type: "Opening Balance",
+      status: "opening balance",
+      amount: transactionAmount, // Now a number, e.g., -50000
+      balance: transactionAmount, // Also a number, e.g., -50000
+    });
+
     return customer;
   }
 
@@ -429,7 +642,7 @@ export class InvoiceService {
     try {
       const data = await this.sheetsService.getSheetData(
         this.spreadsheetId,
-        "Customers!A2:K"
+        "ViewCustomers!A1:L"
       );
       if (!data || data.length === 0) {
         return [];
@@ -437,17 +650,18 @@ export class InvoiceService {
 
       return data
         .map((row) => ({
-          id: row[0] || "",
-          name: row[1] || "",
-          email: row[2] || "",
-          phone: row[3] || "",
-          companyDetails: row[4] ? JSON.parse(row[4]) : null,
-          billingAddress: row[5] ? JSON.parse(row[5]) : null,
-          shippingAddress: row[6] ? JSON.parse(row[6]) : null,
-          other: row[7] ? JSON.parse(row[7]) : null,
-          account: row[8] ? JSON.parse(row[8]) : null,
-          createdAt: row[9] || "",
-          status: (row[10] as Customer["status"]) || "Active",
+          row_id: row[0] || "",
+          id: row[1] || "",
+          name: row[2] || "",
+          email: row[3] || "",
+          phone: row[4] || "",
+          companyDetails: row[5] ? JSON.parse(row[5]) : null,
+          billingAddress: row[6] ? JSON.parse(row[6]) : null,
+          shippingAddress: row[7] ? JSON.parse(row[7]) : null,
+          other: row[8] ? JSON.parse(row[8]) : null,
+          account: row[9] ? JSON.parse(row[9]) : null,
+          createdAt: row[10] || "",
+          status: (row[11] as Customer["status"]) || "Active",
         }))
         .filter((customer) => customer.id); // Filter out empty rows
     } catch (error) {
@@ -470,6 +684,7 @@ export class InvoiceService {
     const updatedCustomer = { ...customers[customerIndex], ...updates };
 
     const row = [
+      "=ROW()",
       updates.id,
       updates.name,
       updates.email,
@@ -491,6 +706,86 @@ export class InvoiceService {
     );
 
     return updatedCustomer;
+  }
+
+  async createCustomerLedger(
+    ledgerData: Omit<CustomerLedger, "ledger_id" | "date">
+  ): Promise<null> {
+    const ledger: CustomerLedger = {
+      ledger_id: `CUSTLED-${Date.now()}`,
+      ...ledgerData,
+      date: new Date().toISOString(),
+    };
+
+    const row = [
+      "=ROW()",
+      ledger.ledger_id,
+      ledger.customer_id,
+      ledger.document_id || "",
+      ledger.date,
+      ledger.status,
+      ledger.type || "",
+      ledger.amount,
+      ledger.balance,
+    ];
+
+    await this.sheetsService.appendToSheet(
+      this.spreadsheetId,
+      "Customer_Ledgers!A2",
+      [row]
+    );
+    return null;
+  }
+
+  async getCustomerLedger(cutomerId: string): Promise<CustomerLedger[]> {
+    try {
+      const updateData = [
+        {
+          range: "Customer_View_Ledgers!A1:I",
+          values: [],
+        },
+        {
+          range: "Customer_View_Ledgers!A1",
+          values: [
+            [
+              `=QUERY(Customer_Ledgers!A2:I, \"SELECT * WHERE C = '${cutomerId}' ORDER BY A DESC\")`,
+            ],
+          ],
+        },
+      ];
+
+      const batchUpdateRes = await this.sheetsService.batchUpdateSheetData(
+        this.spreadsheetId,
+        updateData
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const data = await this.sheetsService.getSheetData(
+        this.spreadsheetId,
+        "Customer_View_Ledgers!A1:I"
+      );
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      return data
+        .map((row) => ({
+          row_id: row[0] || "",
+          ledger_id: row[1] || "",
+          customer_id: row[2] || "",
+          document_id: row[3] || "",
+          date: row[4] || "",
+          status: row[5] || "",
+          type: row[6] || "",
+          amount: row[7] || 0,
+          balance: row[8] || 0,
+        }))
+        .filter((customer) => customer.customer_id); // Filter out empty rows
+    } catch (error) {
+      console.error("Error getting customer ledgers:", error);
+      return []; // Return empty array instead of throwing
+    }
   }
 
   // Settings CRUD operations

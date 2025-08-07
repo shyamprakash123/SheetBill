@@ -12,6 +12,7 @@ import {
   SignatureSettings,
   NotesAndTerms,
   BankDetails,
+  CustomerLedger,
 } from "../lib/backend-service";
 import { googleSheetsSupabaseService } from "../lib/google-sheets-supabase";
 import { supabaseGoogleAuth } from "../lib/supabase-google-auth";
@@ -21,6 +22,7 @@ interface InvoiceState {
   service: InvoiceService | null;
   invoices: Invoice[];
   customers: Customer[];
+  customer_ledgers: CustomerLedger[];
   products: Product[];
   settings: Settings;
   loading: boolean;
@@ -44,6 +46,7 @@ interface InvoiceState {
     customer: Omit<Customer, "id" | "createdAt">
   ) => Promise<Customer>;
   updateCustomer: (id: string, updates: Partial<Customer>) => Promise<Customer>;
+  fetchCustomerLedger: (customer_id: string) => Promise<CustomerLedger[]>;
 
   // Product operations
   fetchProducts: () => Promise<void>;
@@ -267,7 +270,12 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const customer = await service.createCustomer(customerData);
-      set((state) => ({ customers: [customer, ...state.customers] }));
+      // console.log(customer);
+      // set((state) => {
+      //   const data = { customers: [customer, ...state.customers] };
+      //   console.log(data);
+      //   return data;
+      // });
       return customer;
     } catch (error) {
       console.error("Error creating customer:", error);
@@ -295,6 +303,23 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       console.error("Error updating customer:", error);
       set({ error: "Failed to update customer" });
       throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchCustomerLedger: async (cutomerId: string) => {
+    const { service } = get();
+    if (!service) return;
+
+    set({ loading: true, error: null });
+    try {
+      const customerLedgers = await service.getCustomerLedger(cutomerId);
+      return customerLedgers;
+      // set({ customers });
+    } catch (error) {
+      console.error("Error fetching customer ledgers:", error);
+      set({ error: "Failed to fetch customer ledgers" });
     } finally {
       set({ loading: false });
     }

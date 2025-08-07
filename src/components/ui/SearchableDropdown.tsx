@@ -323,6 +323,19 @@ export default function SearchableDropdown({
                         )}
                       </div>
                     )}
+                    {option.balance && (
+                      <div className="flex flex-col items-end text-nowrap">
+                        <p
+                          className={`font-medium text-sm ${
+                            option.other.account.type === "debit"
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          {option.balance}{" "}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))
               )}

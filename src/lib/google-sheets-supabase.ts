@@ -7,6 +7,8 @@ export interface SheetData {
 }
 
 export class GoogleSheetsSupabaseService {
+  private sheetIdMapCache: Record<string, number> | null = null;
+
   private async getValidAccessToken(): Promise<string> {
     const tokens = await supabaseGoogleAuth.getGoogleTokens();
 
@@ -187,6 +189,7 @@ export class GoogleSheetsSupabaseService {
         "Status",
       ],
       Customers: [
+        "Row ID",
         "Customer ID",
         "Name",
         "Email",
@@ -264,6 +267,21 @@ export class GoogleSheetsSupabaseService {
       ],
 
       ViewInvoices: ["=SORT(Invoices!A2:AH, 1, FALSE)"],
+
+      ViewCustomers: ["=SORT(Customers!A2:AL, 1, FALSE)"],
+
+      Customer_Ledgers: [
+        "Row ID",
+        "Ledger ID",
+        "Cutomer ID",
+        "Document Id",
+        "Date",
+        "Status",
+        "Amount",
+        "Balance",
+      ],
+
+      Customer_View_Ledgers: [""],
 
       // Initialize Settings sheet with structured key-value rows
       Settings: [
@@ -370,6 +388,42 @@ export class GoogleSheetsSupabaseService {
     );
 
     return response.json();
+  }
+
+  // Batch update sheet data
+  async batchUpdateSheet(
+    spreadsheetId: string,
+    requests: { range: string; values: any[][] }[]
+  ): Promise<any> {
+    const response = await this.makeGoogleAPIRequest(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          requests,
+        }),
+      }
+    );
+
+    return response.json();
+  }
+
+  async getSheetIdMap(spreadsheetId: string) {
+    if (this.sheetIdMapCache) return this.sheetIdMapCache;
+
+    const res = await this.makeGoogleAPIRequest(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`
+    );
+
+    const data = await res.json();
+
+    this.sheetIdMapCache = {};
+
+    data.sheets.forEach((sheet: any) => {
+      this.sheetIdMapCache![sheet.properties.title] = sheet.properties.sheetId;
+    });
+
+    return this.sheetIdMapCache;
   }
 
   // Get sheet data
