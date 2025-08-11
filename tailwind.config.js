@@ -3,6 +3,7 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/components/DatePickerComponent*.{js,ts,jsx,tsx}",
   ],
   darkMode: 'class',
   theme: {
@@ -43,8 +44,37 @@ export default {
         'bounce-subtle': 'bounceSubtle 2s infinite',
         'float': 'float 3s ease-in-out infinite',
         'gradient': 'gradient 15s ease infinite',
+        'hide': 'hide 150ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'roll-down-and-fade': 'rollDownAndFade 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'roll-up-and-fade': 'rollUpAndFade 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'slide-down-and-fade': 'slideDownAndFade 250ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'slide-left-and-fade': 'slideLeftAndFade 150ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'slide-up-and-fade': 'slideUpAndFade 150ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'slide-right-and-fade': 'slideRightAndFade 150ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'drawer-slide-left-and-fade': 'drawerSlideLeftAndFade 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+        'drawer-slide-right-and-fade': 'drawerSlideRightAndFade 250ms cubic-bezier(0.4, 0, 0.2, 1)',
       },
       keyframes: {
+        hide: {
+          from: { opacity: '1' },
+          to: { opacity: '0' },
+        },
+        slideDownAndFade: {
+          from: { opacity: '0', transform: 'translateY(-20px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideLeftAndFade: {
+          from: { opacity: '0', transform: 'translateX(2px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
+        slideUpAndFade: {
+          from: { opacity: '0', transform: 'translateY(2px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideRightAndFade: {
+          from: { opacity: '0', transform: 'translateX(-2px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
@@ -73,11 +103,72 @@ export default {
           '0%, 100%': { backgroundPosition: '0% 50%' },
           '50%': { backgroundPosition: '100% 50%' },
         },
+        rollDownAndFade: {
+          '0%': {
+            opacity: '0',
+            transform: 'scaleY(0.7)',
+            transformOrigin: 'top',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'scaleY(1)',
+            transformOrigin: 'top',
+          },
+        },
+        rollUpAndFade: {
+          '0%': {
+            opacity: '1',
+            transform: 'scaleY(1)',
+            transformOrigin: 'top',
+          },
+          '100%': {
+            opacity: '0',
+            transform: 'scaleY(0.7)',
+            transformOrigin: 'top',
+          },
+        },
+        drawerSlideLeftAndFade: {
+            from: { 
+              opacity: '0', 
+              transform: 'translateX(100%) scale(0.95)', 
+              transformOrigin: 'right',
+            },
+            to: { 
+              opacity: '1', 
+              transform: 'translateX(0) scale(1)', 
+              transformOrigin: 'right',
+            },
+          },
+        drawerSlideRightAndFade: {
+          from: { 
+            opacity: '1', 
+            transform: 'translateX(0) scale(1)', 
+            transformOrigin: 'right',
+          },
+          to: { 
+            opacity: '0', 
+            transform: 'translateX(100%) scale(0.95)', 
+            transformOrigin: 'right',
+          },
+        },
       },
       backgroundSize: {
         '300%': '300%',
       },
+      zIndex: {
+        '60': '60',
+        '70': '70',
+        '80': '80',
+        '90': '90',
+        '100': '100',
+      }
+    },
+  },
+  variants: {
+    extend: {
+      backgroundColor: ['aria-selected'],
+      textColor: ['aria-selected'],
     },
   },
   plugins: [],
-}
+};

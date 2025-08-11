@@ -1,3 +1,5 @@
+import { PaymentMode } from "./payments";
+
 export type DocumentType =
   | "sales-invoice"
   | "credit-note"

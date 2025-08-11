@@ -167,6 +167,7 @@ export default function SearchableDropdown({
               }}
               title="Remove"
               className=""
+              disabled={disabled}
             >
               <CircleX className="w-4 h-4 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" />
             </button>
@@ -228,6 +229,7 @@ export default function SearchableDropdown({
                     onClick={() => handleSelect(option)}
                     className={`
                       flex justify-between px-3 py-2 cursor-pointer text-sm transition-colors
+                      ${value?.id === option?.id ? "bg-blue-50" : ""}
                       ${
                         index === highlightedIndex
                           ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"

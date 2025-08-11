@@ -388,7 +388,9 @@ export default function InvoiceForm() {
     initData();
   }, []);
 
-  function onAddBankAccount() {}
+  function onAddBankAccount() {
+    navigate("/app/settings?subtab=financial&tab=banks");
+  }
 
   // Notify parent of changes
   // useEffect(() => {
@@ -847,7 +849,7 @@ export default function InvoiceForm() {
             </label>
             <SearchableDropdown
               options={
-                isCustomerBased ? formatCustomerList(customers) : vendors
+                isCustomerBased ? formatCustomerList(customers.data) : vendors
               }
               value={isCustomerBased ? formData.customer : formData.vendor}
               onChange={(entity) => {
@@ -863,7 +865,10 @@ export default function InvoiceForm() {
                   isCustomerBased
                     ? {
                         customer: entity,
-                        shipping: getCustomerShippingAddress(entity, customers),
+                        shipping: getCustomerShippingAddress(
+                          entity,
+                          customers.data
+                        ),
                       }
                     : { vendor: entity }
                 );
@@ -891,7 +896,7 @@ export default function InvoiceForm() {
             <SearchableDropdown
               options={
                 isCustomerBased
-                  ? formatCustomerAddress(formData.customer, customers)
+                  ? formatCustomerAddress(formData.customer, customers.data)
                   : vendors
               }
               value={isCustomerBased ? formData.shipping : formData.vendor}

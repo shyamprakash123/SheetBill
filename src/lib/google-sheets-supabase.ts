@@ -171,6 +171,7 @@ export class GoogleSheetsSupabaseService {
         "Payment Terms",
         "Created At",
         "Updated At",
+        "Ledger Id",
         "PDF URL",
       ],
       Products: [
@@ -266,9 +267,9 @@ export class GoogleSheetsSupabaseService {
         "Notes",
       ],
 
-      ViewInvoices: ["=SORT(Invoices!A2:AH, 1, FALSE)"],
+      ViewInvoices: ['=SORT(INDIRECT("Invoices!A2:AH"), 1, FALSE)'],
 
-      ViewCustomers: ["=SORT(Customers!A2:AL, 1, FALSE)"],
+      ViewCustomers: ['=SORT(INDIRECT("Customers!A2:AL"), 1, FALSE)'],
 
       Customer_Ledgers: [
         "Row ID",

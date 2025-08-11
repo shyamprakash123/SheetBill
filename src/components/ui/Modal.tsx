@@ -1,4 +1,4 @@
-import React from "react";
+import React, { RefObject, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import Button from "./Button";
@@ -9,6 +9,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
+  modalContentRef?: RefObject<HTMLDivElement>;
 }
 
 export default function Modal({
@@ -17,6 +18,7 @@ export default function Modal({
   title,
   children,
   size = "md",
+  modalContentRef,
 }: ModalProps) {
   const sizeClasses = {
     sm: "max-w-md",
@@ -29,7 +31,7 @@ export default function Modal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto px-5px md:px-[10vw]">
+        <div className="fixed inset-0 z-50 px-5px md:px-[10vw]">
           <div className="flex min-h-screen items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
@@ -44,7 +46,11 @@ export default function Modal({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-gray-800 rounded-xl shadow-2xl`}
+              className={`relative ledger_dialog w-full ${sizeClasses[size]} bg-white dark:bg-gray-800 rounded-xl shadow-2xl`}
+              style={{
+                overflow: "visible",
+                transform: "none", // Prevent transform from affecting child positioning
+              }}
             >
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -60,7 +66,12 @@ export default function Modal({
                 </Button>
               </div>
 
-              <div>{children}</div>
+              <div
+                style={{ overflow: "visible", position: "relative" }}
+                ref={modalContentRef}
+              >
+                {children}
+              </div>
             </motion.div>
           </div>
         </div>

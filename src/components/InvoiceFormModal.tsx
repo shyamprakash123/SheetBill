@@ -704,7 +704,7 @@ export default function InvoiceFormModal({
         size="lg"
       >
         <div className="space-y-4">
-          {customers.length === 0 ? (
+          {customers.data.length === 0 ? (
             <div className="text-center py-8">
               <UserIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 dark:text-gray-400 mb-4">
@@ -772,7 +772,7 @@ export default function InvoiceFormModal({
               </div>
             </div>
           ) : (
-            customers.map((customer) => (
+            customers.data.map((customer) => (
               <div
                 key={customer.id}
                 onClick={() => handleCustomerSelect(customer)}

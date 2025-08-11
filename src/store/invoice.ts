@@ -21,7 +21,7 @@ import { useAuthStore } from "./auth";
 interface InvoiceState {
   service: InvoiceService | null;
   invoices: Invoice[];
-  customers: Customer[];
+  customers: { statusInsights: Record<string, number>; data: Customer[] };
   customer_ledgers: CustomerLedger[];
   products: Product[];
   settings: Settings;
@@ -46,7 +46,23 @@ interface InvoiceState {
     customer: Omit<Customer, "id" | "createdAt">
   ) => Promise<Customer>;
   updateCustomer: (id: string, updates: Partial<Customer>) => Promise<Customer>;
-  fetchCustomerLedger: (customer_id: string) => Promise<CustomerLedger[]>;
+  fetchCustomerLedger: (
+    customer_id: string,
+    dateRange?: { from?: Date; to?: Date },
+    orderType?: "ASC" | "DESC",
+    rowsPerPage?: string,
+    currentPage?: string,
+    pendingOnly?: boolean
+  ) => Promise<{ count: number; data: CustomerLedger[] }>;
+  createTransaction: (
+    customer: Customer,
+    amount: number,
+    transactionType: "payIn" | "payOut",
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string
+  ) => Promise<boolean>;
 
   // Product operations
   fetchProducts: () => Promise<void>;
@@ -253,8 +269,8 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const customers = await service.getCustomers();
-      set({ customers });
+      const { statusInsights, customers } = await service.getCustomers();
+      set({ customers: { statusInsights, data: customers } });
     } catch (error) {
       console.error("Error fetching customers:", error);
       set({ error: "Failed to fetch customers" });
@@ -308,18 +324,65 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     }
   },
 
-  fetchCustomerLedger: async (cutomerId: string) => {
+  fetchCustomerLedger: async (
+    customerId: string,
+    dateRange?: { from?: Date; to?: Date },
+    orderType: "ASC" | "DESC" = "DESC",
+    rowsPerPage = "20",
+    page = "1",
+    pendingOnly = false
+  ) => {
     const { service } = get();
     if (!service) return;
 
     set({ loading: true, error: null });
     try {
-      const customerLedgers = await service.getCustomerLedger(cutomerId);
-      return customerLedgers;
+      const { count, data } = await service.getCustomerLedger(
+        customerId,
+        dateRange,
+        orderType,
+        rowsPerPage,
+        page,
+        pendingOnly
+      );
+      return { count, data };
       // set({ customers });
     } catch (error) {
       console.error("Error fetching customer ledgers:", error);
       set({ error: "Failed to fetch customer ledgers" });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  createTransaction: async (
+    customer: Customer,
+    amount: number,
+    transactionType: "payIn" | "payOut",
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string
+  ) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+    try {
+      const success = await service.createTransaction(
+        customer,
+        amount,
+        transactionType,
+        date,
+        paymentMode,
+        bankAccount,
+        notes
+      );
+      return success;
+    } catch (error) {
+      console.error("Error creating transaction:", error);
+      set({ error: "Failed to create transaction" });
+      throw error;
     } finally {
       set({ loading: false });
     }

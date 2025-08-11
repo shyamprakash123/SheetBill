@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useInvoiceStore } from "../store/invoice";
 import { useAuthStore } from "../store/auth";
+import {
+  DatePicker,
+  DateRange,
+} from "../components/DatePickerComponent/DatePicker";
 import {
   PlusIcon,
   EyeIcon,
@@ -24,29 +28,76 @@ import GoogleAuthModal from "../components/GoogleAuthModal";
 import toast from "react-hot-toast";
 import clsx from "clsx";
 import StateDropdown, { gstStates } from "../components/ui/StateDropDown";
-import Switch from "../components/ui/Switch";
 import ModeSwitch from "../components/ui/ModeSwitch";
 import OptionsPopup from "../components/ui/OptionsPopup";
 import Avatar from "../components/Avatar";
 import {
+  ArrowDownCircleIcon,
+  ArrowUpCircleIcon,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Edit,
   Edit3,
   ExternalLink,
   Eye,
   FileText,
   Filter,
+  MoreVertical,
   RefreshCw,
   Share,
   Trash2,
   X,
+  XCircleIcon,
 } from "lucide-react";
 import DefalultDueDaysComponent from "../components/ui/DefaultDueDaysComponent";
 import { Customer } from "../types/invoice";
 import { CustomerLedger } from "../lib/backend-service";
-import { format } from "date-fns/format";
+import format from "date-fns/format";
+import CustomDateRangePicker from "../components/ui/DateRangePicker";
+import { Label } from "../components/DatePickerComponent/Label";
+import {
+  Switch,
+  Switch as TremorSwitch,
+} from "../components/DatePickerComponent/Switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/DatePickerComponent/Select";
+import {
+  Drawer,
+  DrawerTrigger,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerBody,
+  DrawerFooter,
+  DrawerClose,
+} from "../components/DatePickerComponent/Drawer";
+import { Input } from "../components/DatePickerComponent/Input";
+import { Textarea } from "../components/DatePickerComponent/TextArea";
+import {
+  RadioCardGroup,
+  RadioCardIndicator,
+  RadioCardItem,
+} from "../components/DatePickerComponent/RadioCardGroup";
+import { Badge } from "../components/DatePickerComponent/Badge";
+import PaymentTransaction from "../components/PaymentTransaction";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
+import Dialog from "@mui/material/Dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/DatePickerComponent/PopOver";
 
 const initialCustomerState = {
   name: "",
@@ -120,6 +171,18 @@ const getStatusColor = (status, balance) => {
       return "text-green-500 dark:text-green-400";
     default:
       return "text-gray-800 dark:text-gray-400";
+  }
+};
+
+const getLightStatusColor = (status, balance) => {
+  if (balance === "0") return "bg-white";
+  switch (status) {
+    case "debit":
+      return "bg-red-50 dark:bg-red-50";
+    case "credit":
+      return "bg-green-50 dark:bg-green-50";
+    default:
+      return "bg-gray-50 dark:bg-gray-50";
   }
 };
 
@@ -502,7 +565,7 @@ const CustomerFormModal = React.memo(
       >
         <form
           onSubmit={handleFormSubmit}
-          className="flex flex-col h-[80vh]  py-2"
+          className="flex flex-col h-[80vh] py-2"
         >
           <div className="flex-grow overflow-y-auto space-y-4 p-6 pt-2">
             {/* General Information Section */}
@@ -838,397 +901,456 @@ const CustomerFormModal = React.memo(
   }
 );
 
-const LedgerModal = React.memo(({ status, onClose }) => {
-  const [activeTab, setActiveTab] = useState("Ledger");
-  const [showPendingInvoices, setShowPendingInvoices] = useState(false);
-  const [ledgerData, setLedgerData] = useState<CustomerLedger[]>([]);
+const LedgerModal = React.memo(
+  ({ status, onClose, handleTransactionModalOpen }) => {
+    const rowsOption = [
+      {
+        value: "20",
+        label: "20",
+      },
+      {
+        value: "50",
+        label: "50",
+      },
+      {
+        value: "100",
+        label: "100",
+      },
+      {
+        value: "150",
+        label: "150",
+      },
+    ];
 
-  const tabs = ["Ledger", "Transactions", "Bill-Wise Transactions", "Activity"];
-
-  const { fetchCustomerLedger } = useInvoiceStore();
-
-  useEffect(() => {
-    // Define the async function inside the effect.
-    // Renamed to avoid shadowing the global `fetch`.
-    const fetchData = async () => {
-      try {
-        const data = await fetchCustomerLedger(status.customer.id);
-        setLedgerData(data);
-        console.log(data);
-      } catch (error) {
-        console.error("Failed to fetch customer ledger:", error);
-      }
+    const statusToVariant = {
+      pending: "warning", // yellow
+      "partially paid": "default", // choose neutral or create custom if needed
+      paid: "success", // green
+      failed: "error", // red (if needed)
     };
 
-    // Only run the fetch logic if the ID is present.
-    if (status.customer?.id) {
-      fetchData();
-    }
-  }, [status.customer?.id]);
+    const [showPendingInvoices, setShowPendingInvoices] = useState(false);
+    const [ledgerData, setLedgerData] = useState<CustomerLedger[]>([]);
+    const [dateRange, setDateRange] = React.useState<DateRange | undefined>(
+      undefined
+    );
 
-  const transactions = [
-    {
-      id: "INV-21",
-      type: "Invoice",
-      date: "12-06-2025",
-      time: "12 Jun 25, 10:30 AM",
-      status: "pending",
-      statusText: "since 47 days",
-      mode: "",
-      amount: "2,69,600.00",
-      closingBalance: "3,23,600.00",
-      balanceColor: "text-red-600",
-    },
-    {
-      id: "PAYIN-26",
-      type: "Payment In",
-      date: "11-06-2025",
-      time: "11 Jun 25, 05:08 PM",
-      status: "",
-      statusText: "",
-      mode: "Net Banking",
-      amount: "1,50,000.00",
-      closingBalance: "54,000.00",
-      balanceColor: "text-red-600",
-    },
-    {
-      id: "INV-20",
-      type: "Invoice",
-      date: "09-06-2025",
-      time: "09 Jun 25, 08:41 AM",
-      status: "partially paid",
-      statusText: "since 54 days",
-      mode: "",
-      amount: "2,04,000.00",
-      closingBalance: "2,04,000.00",
-      balanceColor: "text-red-600",
-    },
-    {
-      id: "",
-      type: "Balance as of 01 Jan 2025",
-      date: "",
-      time: "",
-      status: "",
-      statusText: "",
-      mode: "",
-      amount: "0.00",
-      closingBalance: "0.00",
-      balanceColor: "text-green-600",
-    },
-  ];
+    const [rowsPerPage, setRowsPerPage] = useState("20");
+    const [currentPage, setCurrentPage] = useState("1");
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const [orderType, setOrderType] = useState<"ASC" | "DESC">("DESC");
+    const [loading, setLoading] = useState(false);
 
-  return (
-    <Modal
-      isOpen={status.isOpen}
-      onClose={() => {
-        setLedgerData([]);
-        onClose();
-      }}
-      title={
-        status.customer?.companyDetails.companyName || status.customer?.name
+    const { fetchCustomerLedger } = useInvoiceStore();
+
+    useEffect(() => {
+      const fetchData = async () => {
+        try {
+          setLoading(true);
+          const { count, data: customerLedgers } = await fetchCustomerLedger(
+            status.customer.id,
+            dateRange,
+            orderType,
+            rowsPerPage,
+            currentPage,
+            showPendingInvoices
+          );
+          setLedgerData(customerLedgers);
+          setTotalCount(count);
+          setTotalPages(Math.ceil(count / parseInt(rowsPerPage)));
+          console.log(customerLedgers);
+          setLoading(false);
+        } catch (error) {
+          console.error("Failed to fetch customer ledger:", error);
+          setLoading(false);
+        }
+      };
+
+      // Only run the fetch logic if the ID is present.
+      if (status.customer?.id) {
+        fetchData();
       }
-      size="xxl"
-    >
-      <div className="bg-gray-50 h-[80vh] rounded-xl">
-        {/* Navigation Tabs */}
-        {/* <div className="bg-white border-b border-gray-200 px-6">
-          <div className="flex space-x-8">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab}
-                {tab === "Activity" && (
-                  <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded">
-                    BETA
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div> */}
+    }, [
+      status.customer?.id,
+      dateRange,
+      orderType,
+      rowsPerPage,
+      currentPage,
+      showPendingInvoices,
+    ]);
 
-        {/* Main Content */}
-        <div className="p-6">
-          {/* Company Info Section */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Avatar
-                  name={
-                    status.customer?.companyDetails.companyName ||
-                    status.customer?.name
-                  }
-                />
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    {status.customer?.companyDetails.companyName ||
-                      status.customer?.name}
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    {status.customer?.name}{" "}
-                    <span>{status.customer?.phone}</span>
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm text-gray-600">
-                      {status.customer?.account.balance !== "" &&
-                        (status.customer?.account.type === "credit"
-                          ? "YOU PAY"
-                          : "YOU COLLECT")}
-                    </span>
-                    <p
-                      className={`flex px-2 py-1  text-lg font-semibold tracking-wide text-right ${getStatusColor(
-                        status.customer?.account.type || "debit",
-                        status.customer?.account?.balance || "0"
-                      )}`}
-                    >
-                      {formatCurrency(status.customer?.account.balance)}
+    const handleOnOrderTypeChange = () => {
+      setOrderType((prev) => (prev === "ASC" ? "DESC" : "ASC"));
+    };
+
+    return (
+      <Modal
+        isOpen={status.isOpen}
+        onClose={() => {
+          setLedgerData([]);
+          onClose();
+        }}
+        title={
+          status.customer?.companyDetails.companyName || status.customer?.name
+        }
+        size="xxl"
+      >
+        <div className="bg-gray-50 h-[80vh] rounded-xl flex flex-col">
+          {/* Main Content */}
+          <div className="px-6 py-4 flex-1 flex flex-col overflow-hidden">
+            {/* Company Info Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-4 mb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Avatar
+                    name={
+                      status.customer?.companyDetails.companyName ||
+                      status.customer?.name
+                    }
+                  />
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {status.customer?.companyDetails.companyName ||
+                        status.customer?.name}
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      {status.customer?.name}{" "}
+                      <span>{status.customer?.phone}</span>
                     </p>
-                    <RefreshCw size={16} className="text-gray-400" />
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm text-gray-600">
+                        {status.customer?.account.balance !== "" &&
+                          (status.customer?.account.type === "credit"
+                            ? "YOU PAY"
+                            : "YOU COLLECT")}
+                      </span>
+                      <p
+                        className={`flex px-2 py-1  text-lg font-semibold tracking-wide text-right ${getStatusColor(
+                          status.customer?.account.type || "debit",
+                          status.customer?.account?.balance || "0"
+                        )}`}
+                      >
+                        {formatCurrency(status.customer?.account.balance)}
+                      </p>
+                      {/* <RefreshCw size={16} className="text-gray-400" /> */}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100">
+                    <Share size={16} />
+                    Share
+                  </button>
+                  <div className="flex items-center">
+                    <button className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-l-lg hover:bg-purple-100">
+                      <FileText size={16} />
+                      View PDF
+                    </button>
+                    <button className="px-2 py-2 bg-purple-50 text-purple-700 rounded-r-lg hover:bg-purple-100 border-l border-purple-200">
+                      <ChevronDown size={16} />
+                    </button>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <button className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100">
-                  <Share size={16} />
-                  Share
-                </button>
-                <div className="flex items-center">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-l-lg hover:bg-purple-100">
-                    <FileText size={16} />
-                    View PDF
-                  </button>
-                  <button className="px-2 py-2 bg-purple-50 text-purple-700 rounded-r-lg hover:bg-purple-100 border-l border-purple-200">
-                    <ChevronDown size={16} />
-                  </button>
-                </div>
-              </div>
             </div>
-          </div>
 
-          {/* Date Range and Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            {/* Date Range and Filters */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-4 mb-2">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value="01-01-2025"
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    readOnly
+                  <CustomDateRangePicker
+                    dateRange={dateRange}
+                    setDateRange={setDateRange}
                   />
-                  <span className="text-gray-500">—</span>
-                  <input
-                    type="text"
-                    value="31-12-2025"
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    readOnly
-                  />
-                  <button className="p-2 text-gray-400 hover:text-gray-600">
-                    <Filter size={16} />
-                  </button>
                 </div>
-                <span className="text-sm text-gray-500">
-                  Showing data for This Year
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  id="pending"
-                  type="checkbox"
-                  checked={showPendingInvoices}
-                  onChange={(e) => setShowPendingInvoices(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="pending" className="text-sm text-gray-600">
-                  Show Pending Invoices
-                </label>
+                <div className="flex items-center justify-center gap-2">
+                  <TremorSwitch
+                    id="r1"
+                    checked={showPendingInvoices}
+                    onCheckedChange={setShowPendingInvoices}
+                  />
+                  <Label htmlFor="r1">Show Pending Transactions</Label>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Transactions Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Id #
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center gap-1">
-                      Date / Created Time
-                      <ChevronDown size={14} />
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mode
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Closing Balance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {ledgerData.map((ledger, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {ledger.document_id || ledger.ledger_id}
+            {/* Transactions Table */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
+              <div className="overflow-y-auto flex-1">
+                <table className="w-full border-collapse">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Id #
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <div
+                          className="flex items-center gap-1 cursor-pointer"
+                          onClick={handleOnOrderTypeChange}
+                        >
+                          Date / Created Time
+                          {orderType === "ASC" ? (
+                            <ChevronDown size={14} />
+                          ) : (
+                            <ChevronUp size={14} />
+                          )}
                         </div>
-                        <div className="text-sm text-gray-500">Invoice</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {format(new Date(ledger.date), "dd-MM-yyyy")}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {format(ledger.date, "d MMM yy, h:mm aaa")
-                          .replace("am", "AM")
-                          .replace("pm", "PM")}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {ledger.status && (
-                        <div>
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              ledger.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : ledger.status === "partially paid"
-                                ? "bg-orange-100 text-orange-800"
-                                : "bg-green-100 text-green-800"
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Mode
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Closing Balance
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {loading ? (
+                      // Render 6 skeleton rows
+                      Array.from({ length: 6 }).map((_, i) => (
+                        <tr key={i} className="animate-pulse">
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                            <div className="h-3 bg-gray-100 rounded w-16"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                            <div className="h-3 bg-gray-100 rounded w-14"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-5 bg-gray-200 rounded w-16"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-5 bg-gray-200 rounded w-14"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-12"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-12"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-5 bg-gray-200 rounded w-20"></div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : ledgerData.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-4 text-center ">
+                          <div className="flex justify-center items-center">
+                            <XCircleIcon className="inline-block w-5 h-5 mr-2 text-red-400" />
+                            <p className="text-base font-semibold">
+                              No data available
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      ledgerData.map((ledger, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {ledger.document_id || ledger.ledger_id}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {ledger.type}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {format(new Date(ledger.date), "dd-MM-yyyy")}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {format(
+                                new Date(ledger.date),
+                                "d MMM yy, h:mm aaa"
+                              )
+                                .replace("am", "AM")
+                                .replace("pm", "PM")}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {ledger.status && (
+                              <Badge
+                                variant={
+                                  statusToVariant[ledger.status] || "neutral"
+                                }
+                              >
+                                {ledger.status}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {ledger.paymentMode && (
+                              <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                                {ledger.paymentMode}
+                              </span>
+                            )}
+                          </td>
+                          <td
+                            className={`px-6 py-4 whitespace-nowrap ${
+                              ledger.amount < 0
+                                ? "bg-red-50/60"
+                                : "bg-green-50/60"
                             }`}
                           >
-                            {ledger.status}
-                          </span>
-                          {ledger.statusText && (
-                            <div className="text-xs text-red-500 mt-1">
-                              {transaction.statusText}
+                            <div className="text-sm font-medium text-gray-900">
+                              {formatCurrency(ledger.amount)}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {ledger.mode && (
-                        <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                          {transaction.mode}
-                        </span>
-                      )}
-                    </td>
-                    <td
-                      className={`px-6 py-4 whitespace-nowrap ${
-                        ledger.amount < 0 ? "bg-red-50/60" : "bg-green-50/60"
-                      }`}
-                    >
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(ledger.amount)}
-                      </div>
-                    </td>
-                    <td
-                      className={`px-6 py-4 whitespace-nowrap ${
-                        ledger.balance < 0 ? "bg-red-50" : "bg-green-50"
-                      }`}
-                    >
-                      <div
-                        className={`text-sm font-semibold ${
-                          ledger.balance === 0
-                            ? "text-gray-900"
-                            : ledger.balance < 0
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }`}
-                      >
-                        {formatCurrency(Math.abs(ledger.balance))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {ledger.ledger_id && (
-                        <div className="flex items-center gap-2">
-                          {ledger.status === "pending" && (
-                            <button className="text-red-500 hover:text-red-700">
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                          {ledger.type === "Payment In" && (
-                            <button className="text-yellow-600 hover:text-yellow-700">
-                              <Edit size={16} />
-                            </button>
-                          )}
-                          {ledger.type === "Payment Out" && (
-                            <button className="text-red-500 hover:text-red-700">
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                          <button className="text-gray-500 hover:text-gray-700">
-                            <Eye size={16} />
-                          </button>
-                          <button className="text-gray-500 hover:text-gray-700">
-                            <ExternalLink size={16} />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Bottom Actions and Pagination */}
-          <div className="flex items-center justify-between mt-6">
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                <span className="text-lg">↓</span>
-                You Got
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                <span className="text-lg">↑</span>
-                You Gave
-              </button>
+                          </td>
+                          <td
+                            className={`px-6 py-4 whitespace-nowrap ${
+                              ledger.balance < 0 ? "bg-red-50" : "bg-green-50"
+                            }`}
+                          >
+                            <div
+                              className={`text-sm font-semibold ${
+                                ledger.balance === 0
+                                  ? "text-gray-900"
+                                  : ledger.balance < 0
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                              }`}
+                            >
+                              {formatCurrency(Math.abs(ledger.balance))}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {ledger.ledger_id && (
+                              <div className="flex items-center gap-2">
+                                {ledger.status === "pending" && (
+                                  <button className="text-red-500 hover:text-red-700">
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                                {ledger.type === "Payment In" && (
+                                  <button className="text-yellow-600 hover:text-yellow-700">
+                                    <Edit size={16} />
+                                  </button>
+                                )}
+                                {ledger.type === "Payment Out" && (
+                                  <button className="text-red-500 hover:text-red-700">
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                                <button className="text-gray-500 hover:text-gray-700">
+                                  <Eye size={16} />
+                                </button>
+                                <button className="text-gray-500 hover:text-gray-700">
+                                  <ExternalLink size={16} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <button className="p-2 text-gray-400 hover:text-gray-600">
-                <ChevronLeft size={20} />
-              </button>
-              <span className="px-3 py-1 bg-blue-600 text-white rounded">
-                1
-              </span>
-              <button className="p-2 text-gray-400 hover:text-gray-600">
-                <ChevronRight size={20} />
-              </button>
-              <div className="flex items-center gap-2 ml-4">
-                <select className="px-3 py-1 border border-gray-300 rounded text-sm">
-                  <option>10</option>
-                  <option>25</option>
-                  <option>50</option>
-                </select>
+
+            {/* Bottom Actions and Pagination */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="flex items-center gap-3">
+                <button
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  onClick={() =>
+                    handleTransactionModalOpen(status.customer, "payIn")
+                  }
+                >
+                  <span className="text-lg">↓</span>
+                  You Got
+                </button>
+                <button
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  onClick={() =>
+                    handleTransactionModalOpen(status.customer, "payOut")
+                  }
+                >
+                  <span className="text-lg">↑</span>
+                  You Gave
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {/* Prev Button */}
+                <button
+                  className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50  disabled:cursor-not-allowed"
+                  onClick={() =>
+                    setCurrentPage((p) =>
+                      Math.max(parseInt(p) - 1, 1).toString()
+                    )
+                  }
+                  disabled={loading || parseInt(currentPage) === 1}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                {/* Current Page */}
+                <span className="px-3 py-1 bg-blue-600 text-white rounded">
+                  {totalPages > 0 ? currentPage : 0} / {totalPages}
+                </span>
+
+                {/* Next Button */}
+                <button
+                  className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() =>
+                    setCurrentPage((p) =>
+                      Math.min(parseInt(p) + 1, totalPages).toString()
+                    )
+                  }
+                  disabled={
+                    loading ||
+                    parseInt(currentPage) === totalPages ||
+                    totalPages === 0
+                  }
+                >
+                  <ChevronRight size={20} />
+                </button>
+
+                {/* Rows per page */}
+                <div className="flex items-center gap-2 ml-4">
+                  <Select
+                    value={rowsPerPage}
+                    onValueChange={(value) => {
+                      setRowsPerPage(value);
+                      setCurrentPage("1"); // reset to first page when size changes
+                    }}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="size-disabled">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rowsOption.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </Modal>
-  );
-});
+      </Modal>
+    );
+  }
+);
 
 export default function Customers() {
   const { customers, fetchCustomers, createCustomer, updateCustomer, loading } =
@@ -1246,6 +1368,34 @@ export default function Customers() {
 
   const [formData, setFormData] = useState(initialCustomerState);
   const [errors, setErrors] = useState({});
+  const [transactionModal, setTransactionModal] = useState<{
+    isOpen: boolean;
+    customer: Customer | null;
+    transactionType: "payIn" | "payOut" | null;
+  }>({
+    isOpen: false,
+    customer: null,
+    transactionType: null,
+  });
+
+  const handleTransactionModalOpenChange = (open: boolean) => {
+    setTransactionModal({
+      isOpen: open,
+      customer: null,
+      transactionType: null,
+    });
+  };
+
+  const handleTransactionModalOpen = (
+    customer: Customer,
+    transactionType: "payIn" | "payOut"
+  ) => {
+    setTransactionModal({
+      isOpen: true,
+      customer,
+      transactionType,
+    });
+  };
 
   const handleCopy = async (name: string, value: string) => {
     try {
@@ -1379,7 +1529,7 @@ export default function Customers() {
     }
   };
 
-  const filteredCustomers = customers.filter((customer) => {
+  const filteredCustomers = customers.data.filter((customer) => {
     const matchesSearch =
       customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1391,12 +1541,14 @@ export default function Customers() {
     return matchesSearch && matchesStatus;
   });
 
-  const totalCustomers = customers.length;
-  const activeCustomers = customers.filter((c) => c.status === "Active").length;
-  const inactiveCustomers = customers.filter(
+  const totalCustomers = customers.data.length;
+  const activeCustomers = customers.data.filter(
+    (c) => c.status === "Active"
+  ).length;
+  const inactiveCustomers = customers.data.filter(
     (c) => c.status === "Inactive"
   ).length;
-  const customersWithGST = customers.filter(
+  const customersWithGST = customers.data.filter(
     (c) => c.companyDetails?.gstin && c.companyDetails.gstin.trim()
   ).length;
 
@@ -1427,7 +1579,7 @@ export default function Customers() {
     },
   ];
 
-  if (loading && !customers.length) {
+  if (loading && !customers.data.length) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
@@ -1495,7 +1647,7 @@ export default function Customers() {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search by name, email, or phone..."
+                  placeholder="Search by name, company, or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary-500"
@@ -1526,191 +1678,232 @@ export default function Customers() {
               All Customers ({filteredCustomers.length})
             </h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Closing Balance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredCustomers.map((customer, index) => {
-                  const actions = [
-                    {
-                      label: "View",
-                      icon: <Eye className="w-4 h-4" />,
-                      onClick: () =>
-                        setLedgerModal({ isOpen: true, customer: customer }),
-                    },
-                    {
-                      label: "Edit",
-                      icon: <Edit3 className="w-4 h-4" />,
-                      onClick: () => {
-                        handleEdit(customer);
+          <div className="bg-white border border-gray-200 overflow-hidden flex-1 flex flex-col max-h-[calc(100vh-200px)]">
+            <div className="overflow-y-auto flex-1 ">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Customer
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Closing Balance
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredCustomers.map((customer, index) => {
+                    const actions = [
+                      {
+                        label: "View",
+                        icon: <Eye className="w-6 h-6 text-blue-600" />,
+                        onClick: () =>
+                          setLedgerModal({ isOpen: true, customer: customer }),
                       },
-                    },
-                    {
-                      label: "Delete",
-                      icon: <Trash2 className="w-4 h-4 text-red-500" />,
-                      onClick: () => alert("Delete"),
-                    },
-                  ];
+                      {
+                        label: "You Got",
+                        icon: (
+                          <ArrowDownCircleIcon className="w-6 h-6 text-green-600" />
+                        ),
+                        onClick: () =>
+                          handleTransactionModalOpen(customer, "payIn"),
+                      },
+                      {
+                        label: "You Gave",
+                        icon: (
+                          <ArrowUpCircleIcon className="w-6 h-6 text-red-600" />
+                        ),
+                        onClick: () =>
+                          handleTransactionModalOpen(customer, "payOut"),
+                      },
+                      {
+                        label: "Edit",
+                        icon: <Edit3 className="w-6 h-6 text-teal-600" />,
+                        onClick: () => {
+                          handleEdit(customer);
+                        },
+                      },
+                      {
+                        label: "Delete",
+                        icon: <Trash2 className="w-6 h-6 text-red-500" />,
+                        onClick: () => alert("Delete"),
+                      },
+                    ];
 
-                  return (
-                    <motion.tr
-                      key={customer.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
-                            <Avatar
-                              name={
-                                customer?.companyDetails.companyName ||
-                                customer?.name
-                              }
-                              colour="blue"
-                            />
-                          </div>
-                          <div>
-                            <div className="text-base font-medium text-gray-900 dark:text-white">
-                              {customer.companyDetails?.companyName ||
-                                customer.name}
+                    return (
+                      <motion.tr
+                        key={customer.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                        onClick={() =>
+                          setLedgerModal({ isOpen: true, customer: customer })
+                        }
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
+                              <Avatar
+                                name={
+                                  customer?.companyDetails.companyName ||
+                                  customer?.name
+                                }
+                                colour="blue"
+                              />
                             </div>
-                            <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                              {customer.companyDetails?.companyName
-                                ? customer.name
-                                : ""}{" "}
-                              <div className="relative group inline-block">
-                                <p
-                                  className="hover:underline cursor-pointer hover:text-black"
-                                  onClick={() =>
-                                    handleCopy(
-                                      "GSTIN",
-                                      customer.companyDetails?.gstin
-                                    )
-                                  }
-                                >
-                                  {customer.companyDetails?.gstin || ""}
-                                </p>
+                            <div>
+                              <div className="text-base font-medium text-gray-900 dark:text-white">
+                                {customer.companyDetails?.companyName ||
+                                  customer.name}
+                              </div>
+                              <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                                {customer.companyDetails?.companyName
+                                  ? customer.name
+                                  : ""}{" "}
+                                <div className="relative group inline-block">
+                                  <p
+                                    className="hover:underline cursor-pointer hover:text-black"
+                                    onClick={() =>
+                                      handleCopy(
+                                        "GSTIN",
+                                        customer.companyDetails?.gstin
+                                      )
+                                    }
+                                  >
+                                    {customer.companyDetails?.gstin || ""}
+                                  </p>
 
-                                {/* Tooltip */}
-                                <div
-                                  className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
+                                  {/* Tooltip */}
+                                  <div
+                                    className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
                   bg-gray-700 text-white text-base px-3 py-1 rounded opacity-0 group-hover:opacity-100
                   transition-opacity duration-200 z-10 pointer-events-none"
-                                >
-                                  Click to copy
-                                  {/* Arrow */}
-                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-700 rotate-45"></div>
+                                  >
+                                    Click to copy
+                                    {/* Arrow */}
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-700 rotate-45"></div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {customer.email && (
-                            <div className="flex items-center mb-1">
-                              <EnvelopeIcon className="h-4 w-4 text-gray-400 mr-2" />
-                              {customer.email}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {customer.phone && (
-                            <div className="flex items-center">
-                              <PhoneIcon className="h-4 w-4 text-gray-400 mr-2" />
-                              {customer.phone}
-                            </div>
-                          )}
-                        </div>
-                      </td>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {customer.email && (
+                              <div className="flex items-center mb-1">
+                                <EnvelopeIcon className="h-4 w-4 text-gray-400 mr-2" />
+                                {customer.email}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {customer.phone && (
+                              <div className="flex items-center">
+                                <PhoneIcon className="h-4 w-4 text-gray-400 mr-2" />
+                                {customer.phone}
+                              </div>
+                            )}
+                          </div>
+                        </td>
 
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <p
-                          className={`px-2 py-1 w-full text-base font-semibold tracking-wide text-right ${getStatusColor(
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap ${getLightStatusColor(
                             customer.account.type || "debit",
                             customer.account?.balance || "0"
                           )}`}
                         >
-                          {formatCurrency(customer.account.balance)}
-                          <p className="text-[10px] font-medium">
-                            {customer.account.balance !== "" &&
-                              (customer.account.type === "credit"
-                                ? "You Pay↑"
-                                : "You Collect↓")}
+                          <p
+                            className={`px-2 py-1 w-full text-base font-semibold tracking-wide text-right ${getStatusColor(
+                              customer.account.type || "debit",
+                              customer.account?.balance || "0"
+                            )}`}
+                          >
+                            {formatCurrency(customer.account.balance)}
+                            <p className="text-[10px] font-medium">
+                              {customer.account.balance !== "" &&
+                                (customer.account.type === "credit"
+                                  ? "You Pay↑"
+                                  : "You Collect↓")}
+                            </p>
                           </p>
-                        </p>
-                      </td>
-                      <td className="relative px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <OptionsPopup options={actions} />
-
-                        {/* <div className="flex items-center space-x-2">
-                        <button className="p-1 text-primary-600 hover:text-primary-900">
-                          <EyeIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(customer)}
-                          className="p-1 text-gray-600 hover:text-gray-900"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button className="p-1 text-red-600 hover:text-red-900">
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </div> */}
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {filteredCustomers.length === 0 && (
-              <div className="text-center py-12">
-                <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">
-                  {searchTerm || filterStatus !== "all"
-                    ? "No customers match your filters."
-                    : "No customers found. Add your first customer."}
-                </p>
-                {!searchTerm && filterStatus === "all" && (
-                  <Button
-                    onClick={() => setShowCreateModal(true)}
-                    className="mt-4"
-                  >
-                    Add Customer
-                  </Button>
-                )}
-              </div>
-            )}
+                        </td>
+                        <td className="text-right px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="hover:bg-gray-200 rounded-full p-2"
+                              >
+                                <MoreVertical className="w-5 h-5 text-gray-600" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="p-0" align="end">
+                              <div className="flex flex-col gap-4">
+                                <div className="space-y-1">
+                                  <ul>
+                                    {actions.map((option, i) => (
+                                      <li
+                                        key={i}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          option.onClick();
+                                        }}
+                                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer transition"
+                                      >
+                                        {option.icon}
+                                        {option.label}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {filteredCustomers.length === 0 && (
+                <div className="text-center py-12">
+                  <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {searchTerm || filterStatus !== "all"
+                      ? "No customers match your filters."
+                      : "No customers found. Add your first customer."}
+                  </p>
+                  {!searchTerm && filterStatus === "all" && (
+                    <Button
+                      onClick={() => setShowCreateModal(true)}
+                      className="mt-4"
+                    >
+                      Add Customer
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="p-2 ml-4 flex space-x-4">
+          <div className="p-2 ml-4 flex space-x-4 sticky bottom-0">
             <p className="bg-green-600 px-2  py-1 text-base text-white rounded-lg">
               You Pay ↑{" "}
               <span className="font-medium tracking-wide">
-                {formatCurrency(5000)}
+                {formatCurrency(customers.statusInsights.credit)}
               </span>
             </p>
             <p className="bg-red-600 px-2  py-1 text-base text-white rounded-lg">
               You Collect ↓{" "}
               <span className="font-medium tracking-wide">
-                {formatCurrency(10000)}
+                {formatCurrency(customers.statusInsights.debit)}
               </span>
             </p>
           </div>
@@ -1727,7 +1920,18 @@ export default function Customers() {
         errors={errors}
       />
 
-      <LedgerModal status={showLedgerModal} onClose={handleLedgerCloseModal} />
+      <LedgerModal
+        status={showLedgerModal}
+        onClose={handleLedgerCloseModal}
+        handleTransactionModalOpen={handleTransactionModalOpen}
+      />
+
+      <PaymentTransaction
+        isOpen={transactionModal.isOpen}
+        onOpenChange={handleTransactionModalOpenChange}
+        transactionType={transactionModal.transactionType}
+        customer={transactionModal.customer}
+      />
 
       <GoogleAuthModal
         isOpen={showGoogleAuth}

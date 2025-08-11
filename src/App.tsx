@@ -18,7 +18,6 @@ import Inventory from "./pages/Inventory";
 import Customers from "./pages/Customers";
 import Vendors from "./pages/Vendors";
 import Reports from "./pages/Reports";
-import Settings from "./pages/Settings";
 import CreditNotes from "./pages/CreditNotes";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import Expenses from "./pages/Expenses";

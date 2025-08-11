@@ -50,7 +50,10 @@ export default function OptionsPopup({ options }: { options: Option[] }) {
     <div className="flex flex-row justify-end w-full">
       <button
         ref={triggerRef}
-        onClick={() => setOpen(!open)}
+        onClick={(e) => {
+          e.stopPropagation(); // stop bubbling up
+          setOpen(!open);
+        }}
         className="p-2 rounded-full w-min hover:bg-gray-200 transition"
       >
         <MoreVertical className="w-5 h-5 text-gray-600" />

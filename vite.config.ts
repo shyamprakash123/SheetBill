@@ -6,7 +6,6 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["lucide-react"],
   },
-  // In vite.config.ts
   server: {
     proxy: {
       "/api/image": {

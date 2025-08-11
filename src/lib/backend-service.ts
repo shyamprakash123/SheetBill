@@ -132,22 +132,40 @@ export interface Settings {
   banks: Partial<BankDetails>[];
 }
 
-function getUserEnteredValue(val: any) {
+function dateStringToSerial(dateStr) {
+  // Sheets serial number calculation
+  const date = new Date(dateStr + "T00:00:00Z");
+  return Math.floor(date.getTime() / (1000 * 60 * 60 * 24)) + 25569;
+}
+
+function getUserEnteredValue(val) {
+  // Real date detection
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    const serial =
+      (new Date(val) - new Date("1899-12-30")) / (1000 * 60 * 60 * 24);
+    return {
+      userEnteredValue: { numberValue: serial },
+      userEnteredFormat: {
+        numberFormat: { type: "DATE", pattern: "yyyy-mm-dd" },
+      },
+    };
+  }
+
   if (typeof val === "number") {
-    return { numberValue: val };
+    return { userEnteredValue: { numberValue: val } };
   } else if (typeof val === "boolean") {
-    return { boolValue: val };
+    return { userEnteredValue: { boolValue: val } };
   } else if (typeof val === "string") {
     if (val.startsWith("=")) {
-      return { formulaValue: val };
+      return { userEnteredValue: { formulaValue: val } };
     }
     const num = parseFloat(val);
     if (!isNaN(num) && /^\d+(\.\d+)?$/.test(val)) {
-      return { numberValue: num };
+      return { userEnteredValue: { numberValue: num } };
     }
-    return { stringValue: val };
+    return { userEnteredValue: { stringValue: val } };
   } else {
-    return { stringValue: String(val) };
+    return { userEnteredValue: { stringValue: String(val) } };
   }
 }
 
@@ -267,8 +285,13 @@ export class InvoiceService {
       ledger.customer_id,
       ledger.document_id || "",
       ledger.date,
+      ledger.date.split("T")[0],
+      ledger.date,
       ledger.status,
       ledger.type || "",
+      "",
+      null,
+      "",
       ledger.amount,
       ledger.balance,
     ];
@@ -279,8 +302,13 @@ export class InvoiceService {
       ledger1.customer_id,
       ledger1.document_id || "",
       ledger1.date,
+      ledger1.date.split("T")[0],
+      ledger1.date,
       ledger1.status,
       ledger1.type || "",
+      invoice?.paymentModes[0]?.paymentMethod || "",
+      JSON.stringify(invoice.bankAccount),
+      invoice?.paymentNotes || "",
       ledger1.amount,
       ledger1.balance,
     ];
@@ -293,9 +321,7 @@ export class InvoiceService {
           sheetId: sheetIds["Invoices"],
           rows: [
             {
-              values: row.map((val) => ({
-                userEnteredValue: getUserEnteredValue(val),
-              })),
+              values: row.map((val) => getUserEnteredValue(val)),
             },
           ],
           fields: "*",
@@ -307,21 +333,17 @@ export class InvoiceService {
           rows: invoice.markedAsPaid
             ? [
                 {
-                  values: ledger_row.map((val) => ({
-                    userEnteredValue: getUserEnteredValue(val),
-                  })),
+                  values: ledger_row.map((val) => getUserEnteredValue(val)),
                 },
                 {
-                  values: ledger_row_paid.map((val) => ({
-                    userEnteredValue: getUserEnteredValue(val),
-                  })),
+                  values: ledger_row_paid.map((val) =>
+                    getUserEnteredValue(val)
+                  ),
                 },
               ]
             : [
                 {
-                  values: ledger_row.map((val) => ({
-                    userEnteredValue: getUserEnteredValue(val),
-                  })),
+                  values: ledger_row.map((val) => getUserEnteredValue(val)),
                 },
               ],
 
@@ -369,9 +391,9 @@ export class InvoiceService {
       requests
     );
 
-    await this.sheetsService.appendToSheet(this.spreadsheetId, "Invoices!A2", [
-      row,
-    ]);
+    // await this.sheetsService.appendToSheet(this.spreadsheetId, "Invoices!A2", [
+    //   row,
+    // ]);
 
     // console.log(invoice.customer);
 
@@ -638,17 +660,23 @@ export class InvoiceService {
     return customer;
   }
 
-  async getCustomers(): Promise<Customer[]> {
+  async getCustomers(): Promise<{
+    statusInsights: Record<string, number>;
+    customers: Customer[];
+  }> {
     try {
       const data = await this.sheetsService.getSheetData(
         this.spreadsheetId,
-        "ViewCustomers!A1:L"
+        "ViewCustomers!A2:L"
       );
       if (!data || data.length === 0) {
-        return [];
+        return { statusInsights: {}, customers: [] };
       }
 
-      return data
+      const statusObject = Object.fromEntries(data.slice(0, 2));
+
+      const fetchedCustomers = data
+        .slice(2)
         .map((row) => ({
           row_id: row[0] || "",
           id: row[1] || "",
@@ -664,9 +692,11 @@ export class InvoiceService {
           status: (row[11] as Customer["status"]) || "Active",
         }))
         .filter((customer) => customer.id); // Filter out empty rows
+
+      return { statusInsights: statusObject, customers: fetchedCustomers };
     } catch (error) {
       console.error("Error getting customers:", error);
-      return []; // Return empty array instead of throwing
+      return { statusInsights: {}, customers: [] };
     }
   }
 
@@ -723,6 +753,7 @@ export class InvoiceService {
       ledger.customer_id,
       ledger.document_id || "",
       ledger.date,
+      ledger.date.split("T")[0],
       ledger.status,
       ledger.type || "",
       ledger.amount,
@@ -737,20 +768,52 @@ export class InvoiceService {
     return null;
   }
 
-  async getCustomerLedger(cutomerId: string): Promise<CustomerLedger[]> {
+  async getCustomerLedger(
+    customerId: string,
+    dateRange?: { from?: Date; to?: Date },
+    orderType: "ASC" | "DESC" = "DESC",
+    rowsPerPage = "20",
+    page = "1",
+    pendingOnly = false
+  ): Promise<{ count: number; data: CustomerLedger[] }> {
     try {
+      let dateFilter = "";
+
+      if (dateRange?.from && dateRange?.to) {
+        // Both dates
+        const fromDate = dateRange.from.toLocaleDateString("en-CA");
+        const toDate = dateRange.to.toLocaleDateString("en-CA");
+        dateFilter = ` AND F >= date '${fromDate}' AND F <= date '${toDate}'`;
+      } else if (dateRange?.from) {
+        // Only from date
+        const fromDate = dateRange.from.toLocaleDateString("en-CA");
+        dateFilter = ` AND F = date '${fromDate}'`;
+      } else if (dateRange?.to) {
+        // Only to date
+        const toDate = dateRange.to.toLocaleDateString("en-CA");
+        dateFilter = ` AND F = date '${toDate}'`;
+      }
+
+      const query = `=QUERY(Customer_Ledgers!A2:N, "SELECT * WHERE C = '${customerId}'${dateFilter} ${
+        pendingOnly ? "AND H = 'pending'" : ""
+      } ORDER BY F ${orderType}, A ${orderType} LIMIT " & ${rowsPerPage} & " OFFSET " & ((${page} - 1) * ${rowsPerPage}), 0)`;
+
+      const paginationQuery = `=QUERY(Customer_Ledgers!A2:N, "SELECT COUNT(A) WHERE C = '${customerId}'${dateFilter} ${
+        pendingOnly ? "AND H = 'pending'" : ""
+      }", 0)`;
+
       const updateData = [
         {
-          range: "Customer_View_Ledgers!A1:I",
+          range: "Customer_View_Ledgers!A1:J",
           values: [],
         },
         {
+          range: "Customer_View_Ledgers!A3",
+          values: [[query]],
+        },
+        {
           range: "Customer_View_Ledgers!A1",
-          values: [
-            [
-              `=QUERY(Customer_Ledgers!A2:I, \"SELECT * WHERE C = '${cutomerId}' ORDER BY A DESC\")`,
-            ],
-          ],
+          values: [[paginationQuery]],
         },
       ];
 
@@ -763,29 +826,139 @@ export class InvoiceService {
 
       const data = await this.sheetsService.getSheetData(
         this.spreadsheetId,
-        "Customer_View_Ledgers!A1:I"
+        "Customer_View_Ledgers!A2:N"
       );
       if (!data || data.length === 0) {
-        return [];
+        return { count: 0, data: [] };
       }
 
-      return data
+      const count = data[0][0] || 0;
+
+      const queryData = data
+        .slice(1)
         .map((row) => ({
           row_id: row[0] || "",
           ledger_id: row[1] || "",
           customer_id: row[2] || "",
           document_id: row[3] || "",
           date: row[4] || "",
-          status: row[5] || "",
-          type: row[6] || "",
-          amount: row[7] || 0,
-          balance: row[8] || 0,
+          dateFormatted: row[5] || "",
+          created_at: row[6] || "",
+          status: row[7] || "",
+          type: row[8] || "",
+          paymentMode: row[9] || "",
+          bank_account: row[10] ? JSON.parse(row[10]) : null,
+          notes: row[11] || "",
+          amount: row[12] || 0,
+          balance: row[13] || 0,
         }))
         .filter((customer) => customer.customer_id); // Filter out empty rows
+
+      return { count, data: queryData };
     } catch (error) {
       console.error("Error getting customer ledgers:", error);
-      return []; // Return empty array instead of throwing
+      return { count: 0, data: [] }; // Return empty array instead of throwing
     }
+  }
+
+  async createTransaction(
+    customer: Customer,
+    amount: number,
+    transactionType: "payIn" | "payOut",
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string
+  ): Promise<boolean> {
+    let ledgerData: Omit<CustomerLedger, "ledger_id" | "date">;
+
+    ledgerData = {
+      customer_id: customer.id,
+      status: "paid",
+      type: transactionType,
+      document_id: "",
+      amount: transactionType === "payOut" ? -amount : amount,
+      balance:
+        customer?.account.type === "credit"
+          ? parseInt(customer?.account.balance) +
+            (transactionType === "payOut" ? -amount : amount)
+          : -parseInt(customer?.account.balance) +
+            (transactionType === "payOut" ? -amount : amount),
+    };
+
+    const ledger: CustomerLedger = {
+      ledger_id: `CUSTLED-${Date.now()}`,
+      ...ledgerData,
+      date: new Date().toISOString(),
+    };
+
+    const ledger_row = [
+      "=ROW()",
+      ledger.ledger_id,
+      ledger.customer_id,
+      ledger.document_id || "",
+      date.toISOString(),
+      date.toISOString().split("T")[0],
+      ledger.date,
+      ledger.status,
+      ledger.type || "",
+      paymentMode,
+      bankAccount ? JSON.stringify(bankAccount) : "",
+      notes || "",
+      ledger.amount,
+      ledger.balance,
+    ];
+
+    console.log(ledger_row);
+
+    const sheetIds = await this.sheetsService.getSheetIdMap(this.spreadsheetId);
+
+    const requests = [
+      {
+        appendCells: {
+          sheetId: sheetIds["Customer_Ledgers"],
+          rows: [
+            {
+              values: ledger_row.map((val) => getUserEnteredValue(val)),
+            },
+          ],
+          fields: "*",
+        },
+      },
+      {
+        updateCells: {
+          range: {
+            sheetId: sheetIds["Customers"],
+            startRowIndex: customer?.row_id - 1,
+            endRowIndex: customer?.row_id,
+            startColumnIndex: 9,
+            endColumnIndex: 10,
+          },
+          rows: [
+            {
+              values: [
+                {
+                  userEnteredValue: {
+                    stringValue: JSON.stringify({
+                      balance: Math.abs(ledgerData.balance),
+                      type: ledgerData.balance < 0 ? "debit" : "credit",
+                    }),
+                  },
+                },
+              ],
+            },
+          ],
+          fields: "*",
+        },
+      },
+    ];
+
+    const batchUpdateRes = await this.sheetsService.batchUpdateSheet(
+      this.spreadsheetId,
+      requests
+    );
+
+    return true;
   }
 
   // Settings CRUD operations
