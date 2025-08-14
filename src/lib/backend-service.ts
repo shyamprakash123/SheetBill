@@ -199,10 +199,6 @@ export class InvoiceService {
         type: "Invoice",
         document_id: invoice.id,
         amount: -invoice.total,
-        balance:
-          invoice.customer.other.account.type === "credit"
-            ? parseInt(invoice.customer.other.account.balance) - invoice.total
-            : -parseInt(invoice.customer.other.account.balance) - invoice.total,
       };
       ledgerData1 = {
         customer_id: invoice.customerId,
@@ -210,10 +206,6 @@ export class InvoiceService {
         type: "Invoice",
         document_id: invoice.id,
         amount: invoice.total,
-        balance:
-          invoice.customer.other.account.type === "credit"
-            ? parseInt(invoice.customer.other.account.balance)
-            : -parseInt(invoice.customer.other.account.balance),
       };
     } else {
       ledgerData = {
@@ -222,10 +214,6 @@ export class InvoiceService {
         type: "Invoice",
         document_id: invoice.id,
         amount: -invoice.total,
-        balance:
-          invoice.customer.other.account.type === "credit"
-            ? parseInt(invoice.customer.other.account.balance) - invoice.total
-            : -parseInt(invoice.customer.other.account.balance) - invoice.total,
       };
     }
 
@@ -293,7 +281,6 @@ export class InvoiceService {
       null,
       "",
       ledger.amount,
-      ledger.balance,
     ];
 
     const ledger_row_paid = [
@@ -310,7 +297,6 @@ export class InvoiceService {
       JSON.stringify(invoice.bankAccount),
       invoice?.paymentNotes || "",
       ledger1.amount,
-      ledger1.balance,
     ];
 
     const sheetIds = await this.sheetsService.getSheetIdMap(this.spreadsheetId);
@@ -350,40 +336,6 @@ export class InvoiceService {
           fields: "*",
         },
       },
-      {
-        updateCells: {
-          range: {
-            sheetId: sheetIds["Customers"],
-            startRowIndex: invoice?.customer?.other?.row_id - 1,
-            endRowIndex: invoice?.customer?.other?.row_id,
-            startColumnIndex: 9,
-            endColumnIndex: 10,
-          },
-          rows: [
-            {
-              values: [
-                {
-                  userEnteredValue: {
-                    stringValue: JSON.stringify({
-                      balance: invoice.markedAsPaid
-                        ? Math.abs(ledgerData1.balance)
-                        : Math.abs(ledgerData.balance),
-                      type: invoice.markedAsPaid
-                        ? ledgerData1.balance < 0
-                          ? "debit"
-                          : "credit"
-                        : ledgerData.balance < 0
-                        ? "debit"
-                        : "credit",
-                    }),
-                  },
-                },
-              ],
-            },
-          ],
-          fields: "*",
-        },
-      },
     ];
 
     const batchUpdateRes = await this.sheetsService.batchUpdateSheet(
@@ -400,6 +352,14 @@ export class InvoiceService {
     return invoice;
   }
 
+  safeParse = (str) => {
+    try {
+      return JSON.parse(str);
+    } catch {
+      return null;
+    }
+  };
+
   async getInvoices(): Promise<Invoice[]> {
     try {
       const data = await this.sheetsService.getSheetData(
@@ -415,7 +375,7 @@ export class InvoiceService {
           rowId: row[0] || "",
           id: row[1] || "",
           customerId: row[2] || "",
-          customer: JSON.parse(row[3]) || "",
+          customer: this.safeParse(row[3]) || "",
           invoiceDate: row[4] || "",
           date: row[4] || "", // Keep for backward compatibility
           dueDate: row[5] || "",
@@ -423,41 +383,41 @@ export class InvoiceService {
           taxAmount: parseFloat(row[7]) || 0,
           total: parseFloat(row[8]) || 0,
           status: (row[9] as Invoice["status"]) || "Draft",
-          items: JSON.parse(row[10]) || "",
+          items: this.safeParse(row[10]) || "",
           paymentNotes: row[11] || "",
           documentType: row[12] || "",
           invoiceType: row[13] || "",
           invoiceNumber: row[14] || "",
           invoicePrefix: row[15] || "",
-          bankAccount: row[16] ? JSON.parse(row[16]) : null,
-          additionalCharges: row[17] ? JSON.parse(row[17]) : null,
-          paymentModes: row[18] ? JSON.parse(row[18]) : [],
+          bankAccount: row[16] ? this.safeParse(row[16]) : null,
+          additionalCharges: row[17] ? this.safeParse(row[17]) : null,
+          paymentModes: row[18] ? this.safeParse(row[18]) : [],
           globalDiscount: row[19]
-            ? JSON.parse(row[19])
+            ? this.safeParse(row[19])
             : {
                 type: "percentage",
                 value: 0,
               },
-          notes: row[20] ? JSON.parse(row[20]) : {},
+          notes: row[20] ? this.safeParse(row[20]) : {},
           tds: row[21]
-            ? JSON.parse(row[21])
+            ? this.safeParse(row[21])
             : { enabled: false, rate: 0, amount: 0 },
           tdsUnderGst: row[22]
-            ? JSON.parse(row[22])
+            ? this.safeParse(row[22])
             : {
                 enabled: false,
                 rate: 0,
                 amount: 0,
               },
           tcs: row[23]
-            ? JSON.parse(row[23])
+            ? this.safeParse(row[23])
             : { enabled: false, rate: 0, amount: 0 },
           extraDiscount: row[24] || 0,
           markedAsPaid: row[25] || false,
-          attachments: row[26] ? JSON.parse(row[26]) : [],
-          dispatchFromAddress: row[27] ? JSON.parse(row[27]) : null,
-          shipping: row[28] ? JSON.parse(row[28]) : null,
-          signature: row[29] ? JSON.parse(row[29]) : null,
+          attachments: row[26] ? this.safeParse(row[26]) : [],
+          dispatchFromAddress: row[27] ? this.safeParse(row[27]) : null,
+          shipping: row[28] ? this.safeParse(row[28]) : null,
+          signature: row[29] ? this.safeParse(row[29]) : null,
           reference: row[30] || null,
           createdAt: row[31] || "",
           updatedAt: row[32] || "",
@@ -634,28 +594,63 @@ export class InvoiceService {
       JSON.stringify(customer.billingAddress),
       JSON.stringify(customer.shippingAddress),
       JSON.stringify(customer.other),
-      JSON.stringify(customer.account),
+      ,
       customer.createdAt,
       customer.status,
     ];
 
-    await this.sheetsService.appendToSheet(this.spreadsheetId, "Customers!A2", [
-      row,
-    ]);
+    const openingBalance =
+      customer?.balance != null
+        ? customer?.accountType?.toLowerCase() === "credit"
+          ? Number(customer.balance)
+          : -Number(customer.balance)
+        : null;
 
-    const baseBalance = customer?.account?.balance ?? 0;
-
-    // Determine the final numeric values
-    const transactionAmount =
-      customer.account.type === "debit" ? -baseBalance : +baseBalance;
-
-    await this.createCustomerLedger({
+    const ledgerData: Omit<CustomerLedger, "ledger_id" | "date" | "balance"> = {
       customer_id: customer.id,
       type: "Opening Balance",
       status: "opening balance",
-      amount: transactionAmount, // Now a number, e.g., -50000
-      balance: transactionAmount, // Also a number, e.g., -50000
-    });
+      amount: openingBalance,
+    };
+
+    const ledger: CustomerLedger = {
+      ledger_id: `CUSTLED-${Date.now()}`,
+      ...ledgerData,
+      date: new Date().toISOString(),
+    };
+
+    const ledger_row = [
+      "=ROW()",
+      ledger.ledger_id,
+      ledger.customer_id,
+      ledger.document_id || "",
+      ledger.date,
+      ledger.date.split("T")[0],
+      ledger.date,
+      ledger.status,
+      ledger.type || "",
+      ,
+      ,
+      ,
+      ledger.amount,
+    ];
+
+    const updateData = [
+      {
+        range: "Customers!A2",
+        values: [row],
+      },
+      openingBalance &&
+        openingBalance !== 0 && {
+          range: "Customer_Ledgers!A2",
+          values: [ledger_row],
+        },
+    ];
+
+    const batchUpdateRes = await this.sheetsService.batchUpdateSheetData(
+      this.spreadsheetId,
+      updateData
+    );
 
     return customer;
   }
@@ -687,7 +682,7 @@ export class InvoiceService {
           billingAddress: row[6] ? JSON.parse(row[6]) : null,
           shippingAddress: row[7] ? JSON.parse(row[7]) : null,
           other: row[8] ? JSON.parse(row[8]) : null,
-          account: row[9] ? JSON.parse(row[9]) : null,
+          balance: row[9] || 0,
           createdAt: row[10] || "",
           status: (row[11] as Customer["status"]) || "Active",
         }))
@@ -705,13 +700,18 @@ export class InvoiceService {
     updates: Partial<Customer>
   ): Promise<Customer> {
     const customers = await this.getCustomers();
-    const customerIndex = customers.findIndex((cust) => cust.id === customerId);
+    const customerIndex = customers.customers.findIndex(
+      (cust) => cust.id === customerId
+    );
 
     if (customerIndex === -1) {
       throw new Error("Customer not found");
     }
 
-    const updatedCustomer = { ...customers[customerIndex], ...updates };
+    const updatedCustomer = {
+      ...customers.customers[customerIndex],
+      ...updates,
+    };
 
     const row = [
       "=ROW()",
@@ -723,15 +723,15 @@ export class InvoiceService {
       JSON.stringify(updates.billingAddress),
       JSON.stringify(updates.shippingAddress),
       JSON.stringify(updates.other),
-      JSON.stringify(updates.account),
+      ,
       updates.createdAt,
       updates.status,
     ];
 
-    const rowNumber = customerIndex + 2;
+    const rowNumber = updates?.row_id;
     await this.sheetsService.updateSheetData(
       this.spreadsheetId,
-      `Customers!A${rowNumber}:K${rowNumber}`,
+      `Customers!A${rowNumber}:L${rowNumber}`,
       [row]
     );
 
@@ -739,7 +739,7 @@ export class InvoiceService {
   }
 
   async createCustomerLedger(
-    ledgerData: Omit<CustomerLedger, "ledger_id" | "date">
+    ledgerData: Omit<CustomerLedger, "ledger_id" | "date" | "balance">
   ): Promise<null> {
     const ledger: CustomerLedger = {
       ledger_id: `CUSTLED-${Date.now()}`,
@@ -754,10 +754,13 @@ export class InvoiceService {
       ledger.document_id || "",
       ledger.date,
       ledger.date.split("T")[0],
+      ledger.date,
       ledger.status,
       ledger.type || "",
+      ,
+      ,
+      ,
       ledger.amount,
-      ledger.balance,
     ];
 
     await this.sheetsService.appendToSheet(
@@ -878,12 +881,6 @@ export class InvoiceService {
       type: transactionType,
       document_id: "",
       amount: transactionType === "payOut" ? -amount : amount,
-      balance:
-        customer?.account.type === "credit"
-          ? parseInt(customer?.account.balance) +
-            (transactionType === "payOut" ? -amount : amount)
-          : -parseInt(customer?.account.balance) +
-            (transactionType === "payOut" ? -amount : amount),
     };
 
     const ledger: CustomerLedger = {
@@ -892,13 +889,15 @@ export class InvoiceService {
       date: new Date().toISOString(),
     };
 
+    console.log(date);
+
     const ledger_row = [
       "=ROW()",
       ledger.ledger_id,
       ledger.customer_id,
       ledger.document_id || "",
       date.toISOString(),
-      date.toISOString().split("T")[0],
+      date.toLocaleDateString("en-CA"),
       ledger.date,
       ledger.status,
       ledger.type || "",
@@ -906,56 +905,96 @@ export class InvoiceService {
       bankAccount ? JSON.stringify(bankAccount) : "",
       notes || "",
       ledger.amount,
-      ledger.balance,
     ];
 
-    console.log(ledger_row);
+    // const sheetIds = await this.sheetsService.getSheetIdMap(this.spreadsheetId);
 
+    // const requests = [
+    //   {
+    //     appendCells: {
+    //       sheetId: sheetIds["Customer_Ledgers"],
+    //       rows: [
+    //         {
+    //           values: ledger_row.map((val) => getUserEnteredValue(val)),
+    //         },
+    //       ],
+    //       fields: "*",
+    //     },
+    //   },
+    // ];
+
+    // const batchUpdateRes = await this.sheetsService.batchUpdateSheet(
+    //   this.spreadsheetId,
+    //   requests
+    // );
+
+    await this.sheetsService.appendToSheet(
+      this.spreadsheetId,
+      "Customer_Ledgers!A2",
+      [ledger_row]
+    );
+
+    return true;
+  }
+
+  async UpdateTransaction(
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string,
+    customerLedger: CustomerLedger
+  ): Promise<CustomerLedger> {
+    console.log(date);
+
+    const updated_ledger = {
+      row_id: customerLedger.row_id,
+      ledger_id: customerLedger.ledger_id,
+      customer_id: customerLedger.customer_id,
+      document_id: customerLedger.document_id,
+      date: date.toISOString(),
+      dateFormatted: date.toLocaleDateString("en-CA"),
+      created_at: customerLedger.created_at,
+      status: customerLedger.status,
+      type: customerLedger.type,
+      paymentMode: paymentMode,
+      bank_account: bankAccount ? JSON.stringify(bankAccount) : "",
+      notes: notes || "",
+      amount: customerLedger.amount,
+      balance: customerLedger.balance,
+    };
+
+    const ledger_row = [
+      "=ROW()",
+      customerLedger.ledger_id,
+      customerLedger.customer_id,
+      customerLedger.document_id || "",
+      date.toISOString(),
+      date.toLocaleDateString("en-CA"),
+      customerLedger.created_at,
+      customerLedger.status,
+      customerLedger.type || "",
+      paymentMode,
+      bankAccount ? JSON.stringify(bankAccount) : "",
+      notes || "",
+      customerLedger.amount,
+    ];
+
+    await this.sheetsService.updateSheetData(
+      this.spreadsheetId,
+      `Customer_Ledgers!A${customerLedger.row_id}:M${customerLedger.row_id}`,
+      [ledger_row]
+    );
+
+    return updated_ledger;
+  }
+
+  async deleteTransaction(rowId: number): Promise<boolean> {
     const sheetIds = await this.sheetsService.getSheetIdMap(this.spreadsheetId);
 
-    const requests = [
-      {
-        appendCells: {
-          sheetId: sheetIds["Customer_Ledgers"],
-          rows: [
-            {
-              values: ledger_row.map((val) => getUserEnteredValue(val)),
-            },
-          ],
-          fields: "*",
-        },
-      },
-      {
-        updateCells: {
-          range: {
-            sheetId: sheetIds["Customers"],
-            startRowIndex: customer?.row_id - 1,
-            endRowIndex: customer?.row_id,
-            startColumnIndex: 9,
-            endColumnIndex: 10,
-          },
-          rows: [
-            {
-              values: [
-                {
-                  userEnteredValue: {
-                    stringValue: JSON.stringify({
-                      balance: Math.abs(ledgerData.balance),
-                      type: ledgerData.balance < 0 ? "debit" : "credit",
-                    }),
-                  },
-                },
-              ],
-            },
-          ],
-          fields: "*",
-        },
-      },
-    ];
-
-    const batchUpdateRes = await this.sheetsService.batchUpdateSheet(
+    await this.sheetsService.deleteRow(
       this.spreadsheetId,
-      requests
+      sheetIds["Customer_Ledgers"],
+      rowId
     );
 
     return true;

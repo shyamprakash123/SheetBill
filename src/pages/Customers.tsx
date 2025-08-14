@@ -43,6 +43,7 @@ import {
   ExternalLink,
   Eye,
   FileText,
+  FileTextIcon,
   Filter,
   MoreVertical,
   RefreshCw,
@@ -98,6 +99,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../components/DatePickerComponent/PopOver";
+import TransactionDetailsDrawer from "../components/TransactionDetailsDrawer";
+import DeleteDialog from "../components/ui/DeleteDialog";
+import { useToast } from "../components/DatePickerComponent/lib/useToast";
 
 const initialCustomerState = {
   name: "",
@@ -122,10 +126,6 @@ const initialCustomerState = {
   companyDetails: {
     gstin: "",
     companyName: "",
-  },
-  account: {
-    balance: "",
-    type: "debit",
   },
 
   other: {
@@ -162,27 +162,23 @@ const formatCurrency = (amount) => {
     .join("");
 };
 
-const getStatusColor = (status, balance) => {
-  if (balance === "0") return "text-gray-800 dark:text-gray-400";
-  switch (status) {
-    case "debit":
-      return "text-red-600 dark:text-red-400";
-    case "credit":
-      return "text-green-500 dark:text-green-400";
-    default:
-      return "text-gray-800 dark:text-gray-400";
+const getStatusColor = (balance) => {
+  if (balance > 0) {
+    return "text-green-500 dark:text-green-400";
+  } else if (balance < 0) {
+    return "text-red-600 dark:text-red-400";
+  } else {
+    return "text-gray-800 dark:text-gray-400";
   }
 };
 
-const getLightStatusColor = (status, balance) => {
-  if (balance === "0") return "bg-white";
-  switch (status) {
-    case "debit":
-      return "bg-red-50 dark:bg-red-50";
-    case "credit":
-      return "bg-green-50 dark:bg-green-50";
-    default:
-      return "bg-gray-50 dark:bg-gray-50";
+const getLightStatusColor = (balance) => {
+  if (balance > 0) {
+    return "bg-green-50 dark:bg-green-50";
+  } else if (balance < 0) {
+    return "bg-red-50 dark:bg-red-50";
+  } else {
+    return "bg-gray-50 dark:bg-gray-50";
   }
 };
 
@@ -291,7 +287,7 @@ const FormInput = React.memo(
           </button>
         )}
 
-        {name === "balance" && value.trim() !== "" && (
+        {name === "balance" && value && (
           <p
             className={clsx(
               `absolute right-4 top-1/2 -translate-y-1/2 h-full px-6 text-base  ${
@@ -344,6 +340,7 @@ const CustomerFormModal = React.memo(
     const [customer, setCustomer] = useState(initialCustomerData);
     const [sameAsBilling, setSameAsBilling] = useState(true);
     const [loadingGSTIN, setLoadingGSTIN] = useState(false);
+    const [accountType, setAccountType] = useState("debit");
 
     const handleFetchGSTIN = async () => {
       setLoadingGSTIN(true);
@@ -527,6 +524,7 @@ const CustomerFormModal = React.memo(
           shippingAddress: sameAsBilling
             ? customer.billingAddress
             : customer.shippingAddress,
+          accountType: accountType,
         };
         console.log(finalCustomerData);
         onSubmit(finalCustomerData);
@@ -788,26 +786,20 @@ const CustomerFormModal = React.memo(
                       label="Opening Balance"
                       name="balance"
                       type="number"
-                      value={customer.account.balance}
-                      onChange={handleAccountChange}
+                      value={customer.balance}
+                      onChange={handleChange}
                       placeholder="e.g., ₹50000"
-                      accountType={customer.account.type}
+                      accountType={accountType}
                       onKeyDown={blockPlusMinus}
                       onPaste={handlePaste}
                     />
                   </div>
                   <ModeSwitch
-                    value={customer.account.type}
+                    value={accountType}
                     onChange={(mode) =>
-                      setCustomer((prev) => {
-                        return {
-                          ...prev,
-                          account: {
-                            ...prev.account,
-                            type: mode,
-                          },
-                        };
-                      })
+                      setAccountType((prev) =>
+                        prev === "debit" ? "credit" : "debit"
+                      )
                     }
                   />
                 </div>
@@ -935,6 +927,20 @@ const LedgerModal = React.memo(
       undefined
     );
 
+    const { toast } = useToast();
+
+    const [transactionDetailsModal, setTransactionDetailsModal] = useState<{
+      isOpen: boolean;
+      customer: Customer | null;
+      transactionType: any;
+      customerLedger?: CustomerLedger | null;
+    }>({
+      isOpen: false,
+      customer: null,
+      transactionType: null,
+      customerLedger: null,
+    });
+
     const [rowsPerPage, setRowsPerPage] = useState("20");
     const [currentPage, setCurrentPage] = useState("1");
     const [totalPages, setTotalPages] = useState(1);
@@ -942,31 +948,49 @@ const LedgerModal = React.memo(
     const [orderType, setOrderType] = useState<"ASC" | "DESC">("DESC");
     const [loading, setLoading] = useState(false);
 
-    const { fetchCustomerLedger } = useInvoiceStore();
+    const [deleteDialog, setDeleteDialog] = useState<{
+      isOpen: boolean;
+      onConfirm: () => void;
+      itemName: string | null;
+    }>({
+      isOpen: false,
+      onConfirm: () => {},
+      itemName: null,
+    });
+
+    const { fetchCustomerLedger, deleteTransaction } = useInvoiceStore();
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const { count, data: customerLedgers } = await fetchCustomerLedger(
+          status.customer.id,
+          dateRange,
+          orderType,
+          rowsPerPage,
+          currentPage,
+          showPendingInvoices
+        );
+        setLedgerData(customerLedgers);
+        setTotalCount(count);
+        setTotalPages(Math.ceil(count / parseInt(rowsPerPage)));
+        console.log(customerLedgers);
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch customer ledger:", error);
+        setLoading(false);
+      }
+    };
+
+    const handleUpdatedLedger = (updatedLedger: CustomerLedger) => {
+      setLedgerData((prev) =>
+        prev.map((ledger) =>
+          ledger.ledger_id === updatedLedger.ledger_id ? updatedLedger : ledger
+        )
+      );
+    };
 
     useEffect(() => {
-      const fetchData = async () => {
-        try {
-          setLoading(true);
-          const { count, data: customerLedgers } = await fetchCustomerLedger(
-            status.customer.id,
-            dateRange,
-            orderType,
-            rowsPerPage,
-            currentPage,
-            showPendingInvoices
-          );
-          setLedgerData(customerLedgers);
-          setTotalCount(count);
-          setTotalPages(Math.ceil(count / parseInt(rowsPerPage)));
-          console.log(customerLedgers);
-          setLoading(false);
-        } catch (error) {
-          console.error("Failed to fetch customer ledger:", error);
-          setLoading(false);
-        }
-      };
-
       // Only run the fetch logic if the ID is present.
       if (status.customer?.id) {
         fetchData();
@@ -984,370 +1008,507 @@ const LedgerModal = React.memo(
       setOrderType((prev) => (prev === "ASC" ? "DESC" : "ASC"));
     };
 
+    const handleDeleteTransaction = async (row_id: number) => {
+      try {
+        setLoading(true);
+        await deleteTransaction(row_id);
+        setDeleteDialog({ isOpen: false, onConfirm: () => {}, itemName: null });
+        toast({
+          title: "Success",
+          description: "Transaction deleted successfully.",
+          variant: "success",
+          duration: 3000,
+        });
+
+        await fetchData(); // Refresh data after deletion
+      } catch (error) {
+        console.error("Failed to delete transaction:", error);
+      }
+    };
+
+    const handleTransactionDeleteConfirm = (ledger: CustomerLedger) => {
+      setDeleteDialog({
+        isOpen: true,
+        onConfirm: () => handleDeleteTransaction(ledger.row_id),
+        itemName: ledger.ledger_id,
+      });
+    };
+
     return (
-      <Modal
-        isOpen={status.isOpen}
-        onClose={() => {
-          setLedgerData([]);
-          onClose();
-        }}
-        title={
-          status.customer?.companyDetails.companyName || status.customer?.name
-        }
-        size="xxl"
-      >
-        <div className="bg-gray-50 h-[80vh] rounded-xl flex flex-col">
-          {/* Main Content */}
-          <div className="px-6 py-4 flex-1 flex flex-col overflow-hidden">
-            {/* Company Info Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-4 mb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Avatar
-                    name={
-                      status.customer?.companyDetails.companyName ||
-                      status.customer?.name
-                    }
-                  />
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      {status.customer?.companyDetails.companyName ||
-                        status.customer?.name}
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      {status.customer?.name}{" "}
-                      <span>{status.customer?.phone}</span>
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm text-gray-600">
-                        {status.customer?.account.balance !== "" &&
-                          (status.customer?.account.type === "credit"
-                            ? "YOU PAY"
-                            : "YOU COLLECT")}
-                      </span>
-                      <p
-                        className={`flex px-2 py-1  text-lg font-semibold tracking-wide text-right ${getStatusColor(
-                          status.customer?.account.type || "debit",
-                          status.customer?.account?.balance || "0"
-                        )}`}
-                      >
-                        {formatCurrency(status.customer?.account.balance)}
+      <>
+        <Modal
+          isOpen={status.isOpen}
+          onClose={() => {
+            setLedgerData([]);
+            onClose();
+          }}
+          title={
+            status.customer?.companyDetails.companyName || status.customer?.name
+          }
+          size="xxl"
+        >
+          <div className="bg-gray-50 h-[80vh] rounded-xl flex flex-col">
+            {/* Main Content */}
+            <div className="px-6 py-4 flex-1 flex flex-col overflow-hidden">
+              {/* Company Info Section */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-4 mb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <Avatar
+                      name={
+                        status.customer?.companyDetails.companyName ||
+                        status.customer?.name
+                      }
+                    />
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        {status.customer?.companyDetails.companyName ||
+                          status.customer?.name}
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        {status.customer?.name}{" "}
+                        <span>{status.customer?.phone}</span>
                       </p>
-                      {/* <RefreshCw size={16} className="text-gray-400" /> */}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-sm text-gray-600">
+                          {status.customer?.balance !== 0 &&
+                            (status.customer?.balance > 0
+                              ? "YOU PAY"
+                              : "YOU COLLECT")}
+                        </span>
+                        <p
+                          className={`flex px-2 py-1  text-lg font-semibold tracking-wide text-right ${getStatusColor(
+                            status.customer?.balance
+                          )}`}
+                        >
+                          {formatCurrency(Math.abs(status.customer?.balance))}
+                        </p>
+                        <button
+                          onClick={() => fetchData()}
+                          disabled={loading}
+                          className={`px-2 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <RefreshCw
+                            size={16}
+                            className={`text-gray-500 hover:text-gray-600 ${
+                              loading ? "animate-spin" : ""
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100">
+                      <Share size={16} />
+                      Share
+                    </button>
+                    <div className="flex items-center">
+                      <button className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-l-lg hover:bg-purple-100">
+                        <FileText size={16} />
+                        View PDF
+                      </button>
+                      <button className="px-2 py-2 bg-purple-50 text-purple-700 rounded-r-lg hover:bg-purple-100 border-l border-purple-200">
+                        <ChevronDown size={16} />
+                      </button>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100">
-                    <Share size={16} />
-                    Share
-                  </button>
-                  <div className="flex items-center">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-l-lg hover:bg-purple-100">
-                      <FileText size={16} />
-                      View PDF
-                    </button>
-                    <button className="px-2 py-2 bg-purple-50 text-purple-700 rounded-r-lg hover:bg-purple-100 border-l border-purple-200">
-                      <ChevronDown size={16} />
-                    </button>
+              </div>
+
+              {/* Date Range and Filters */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-4 mb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CustomDateRangePicker
+                      dateRange={dateRange}
+                      setDateRange={setDateRange}
+                    />
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <TremorSwitch
+                      id="r1"
+                      checked={showPendingInvoices}
+                      onCheckedChange={setShowPendingInvoices}
+                    />
+                    <Label htmlFor="r1">Show Pending Transactions</Label>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Date Range and Filters */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-4 mb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CustomDateRangePicker
-                    dateRange={dateRange}
-                    setDateRange={setDateRange}
-                  />
-                </div>
-                <div className="flex items-center justify-center gap-2">
-                  <TremorSwitch
-                    id="r1"
-                    checked={showPendingInvoices}
-                    onCheckedChange={setShowPendingInvoices}
-                  />
-                  <Label htmlFor="r1">Show Pending Transactions</Label>
-                </div>
-              </div>
-            </div>
-
-            {/* Transactions Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
-              <div className="overflow-y-auto flex-1">
-                <table className="w-full border-collapse">
-                  <thead className="bg-gray-50 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Id #
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <div
-                          className="flex items-center gap-1 cursor-pointer"
-                          onClick={handleOnOrderTypeChange}
-                        >
-                          Date / Created Time
-                          {orderType === "ASC" ? (
-                            <ChevronDown size={14} />
-                          ) : (
-                            <ChevronUp size={14} />
-                          )}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Mode
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Closing Balance
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {loading ? (
-                      // Render 6 skeleton rows
-                      Array.from({ length: 6 }).map((_, i) => (
-                        <tr key={i} className="animate-pulse">
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                            <div className="h-3 bg-gray-100 rounded w-16"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
-                            <div className="h-3 bg-gray-100 rounded w-14"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-5 bg-gray-200 rounded w-16"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-5 bg-gray-200 rounded w-14"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-gray-200 rounded w-12"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-gray-200 rounded w-12"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-5 bg-gray-200 rounded w-20"></div>
+              {/* Transactions Table */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
+                <div className="overflow-y-auto flex-1">
+                  <table className="w-full border-collapse">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Id #
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <div
+                            className="flex items-center gap-1 cursor-pointer"
+                            onClick={handleOnOrderTypeChange}
+                          >
+                            Date / Created Time
+                            {orderType === "ASC" ? (
+                              <ChevronDown size={14} />
+                            ) : (
+                              <ChevronUp size={14} />
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Mode
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Amount
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Closing Balance
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {loading ? (
+                        // Render 6 skeleton rows
+                        Array.from({ length: 6 }).map((_, i) => (
+                          <tr key={i} className="animate-pulse">
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                              <div className="h-3 bg-gray-100 rounded w-16"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                              <div className="h-3 bg-gray-100 rounded w-14"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-5 bg-gray-200 rounded w-16"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-5 bg-gray-200 rounded w-14"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-gray-200 rounded w-12"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-gray-200 rounded w-12"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-5 bg-gray-200 rounded w-20"></div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : ledgerData.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-4 text-center ">
+                            <div className="flex justify-center items-center">
+                              <XCircleIcon className="inline-block w-5 h-5 mr-2 text-red-400" />
+                              <p className="text-base font-semibold">
+                                No data available
+                              </p>
+                            </div>
                           </td>
                         </tr>
-                      ))
-                    ) : ledgerData.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-4 text-center ">
-                          <div className="flex justify-center items-center">
-                            <XCircleIcon className="inline-block w-5 h-5 mr-2 text-red-400" />
-                            <p className="text-base font-semibold">
-                              No data available
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      ledgerData.map((ledger, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {ledger.document_id || ledger.ledger_id}
+                      ) : (
+                        ledgerData.map((ledger, index) => (
+                          <tr
+                            key={index}
+                            className="hover:bg-gray-50"
+                            onClick={() =>
+                              setTransactionDetailsModal({
+                                isOpen: true,
+                                customer: status.customer,
+                                transactionType: ledger.type,
+                                customerLedger: ledger,
+                              })
+                            }
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {ledger.document_id || ledger.ledger_id}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {ledger.type}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {format(new Date(ledger.date), "dd-MM-yyyy")}
                               </div>
                               <div className="text-sm text-gray-500">
-                                {ledger.type}
+                                {format(new Date(ledger.date), "d MMM yy")}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {format(new Date(ledger.date), "dd-MM-yyyy")}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {format(
-                                new Date(ledger.date),
-                                "d MMM yy, h:mm aaa"
-                              )
-                                .replace("am", "AM")
-                                .replace("pm", "PM")}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {ledger.status && (
-                              <Badge
-                                variant={
-                                  statusToVariant[ledger.status] || "neutral"
-                                }
-                              >
-                                {ledger.status}
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {ledger.paymentMode && (
-                              <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                                {ledger.paymentMode}
-                              </span>
-                            )}
-                          </td>
-                          <td
-                            className={`px-6 py-4 whitespace-nowrap ${
-                              ledger.amount < 0
-                                ? "bg-red-50/60"
-                                : "bg-green-50/60"
-                            }`}
-                          >
-                            <div className="text-sm font-medium text-gray-900">
-                              {formatCurrency(ledger.amount)}
-                            </div>
-                          </td>
-                          <td
-                            className={`px-6 py-4 whitespace-nowrap ${
-                              ledger.balance < 0 ? "bg-red-50" : "bg-green-50"
-                            }`}
-                          >
-                            <div
-                              className={`text-sm font-semibold ${
-                                ledger.balance === 0
-                                  ? "text-gray-900"
-                                  : ledger.balance < 0
-                                  ? "text-red-600"
-                                  : "text-green-600"
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {ledger.status && (
+                                <Badge
+                                  variant={
+                                    statusToVariant[ledger.status] || "neutral"
+                                  }
+                                >
+                                  {ledger.status}
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {ledger.paymentMode && (
+                                <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                                  {ledger.paymentMode}
+                                </span>
+                              )}
+                            </td>
+                            <td
+                              className={`px-6 py-4 whitespace-nowrap ${
+                                ledger.amount < 0
+                                  ? "bg-red-50/60"
+                                  : "bg-green-50/60"
                               }`}
                             >
-                              {formatCurrency(Math.abs(ledger.balance))}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {ledger.ledger_id && (
-                              <div className="flex items-center gap-2">
-                                {ledger.status === "pending" && (
-                                  <button className="text-red-500 hover:text-red-700">
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
-                                {ledger.type === "Payment In" && (
-                                  <button className="text-yellow-600 hover:text-yellow-700">
-                                    <Edit size={16} />
-                                  </button>
-                                )}
-                                {ledger.type === "Payment Out" && (
-                                  <button className="text-red-500 hover:text-red-700">
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
-                                <button className="text-gray-500 hover:text-gray-700">
-                                  <Eye size={16} />
-                                </button>
-                                <button className="text-gray-500 hover:text-gray-700">
-                                  <ExternalLink size={16} />
-                                </button>
+                              <div className="text-sm font-medium text-gray-900">
+                                {formatCurrency(ledger.amount)}
                               </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                            </td>
+                            <td
+                              className={`px-6 py-4 whitespace-nowrap ${
+                                ledger.balance !== 0
+                                  ? ledger.balance < 0
+                                    ? "bg-red-50"
+                                    : "bg-green-50"
+                                  : "bg-white"
+                              }`}
+                            >
+                              <div
+                                className={`text-sm font-semibold ${
+                                  ledger.balance === 0
+                                    ? "text-gray-900"
+                                    : ledger.balance < 0
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }`}
+                              >
+                                {formatCurrency(Math.abs(ledger.balance))}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              {ledger.ledger_id &&
+                                ledger.status !== "opening balance" && (
+                                  <div className="flex items-center justify-end gap-2">
+                                    {ledger.status === "pending" && (
+                                      <button className="text-red-500 hover:text-red-700">
+                                        <Trash2 size={16} />
+                                      </button>
+                                    )}
+                                    {(ledger.type === "payIn" ||
+                                      ledger.type === "payOut") && (
+                                      <button
+                                        className="flex text-yellow-800 hover:text-yellow-900 bg-yellow-500/10 px-2 py-1 rounded items-center"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleTransactionModalOpen(
+                                            status.customer,
+                                            ledger.type,
+                                            (updatedLedger: CustomerLedger) => {
+                                              handleUpdatedLedger(
+                                                updatedLedger
+                                              );
+                                              toast({
+                                                title: `${ledger.type} Success`,
+                                                description:
+                                                  "Transaction Updated successfully.",
+                                                variant: "success",
+                                                duration: 3000,
+                                              });
+                                            },
+                                            ledger
+                                          );
+                                        }}
+                                      >
+                                        <Edit size={16} />
+                                        <span className="text-sm ml-2">
+                                          Edit
+                                        </span>
+                                      </button>
+                                    )}
+                                    <button
+                                      className="text-red-500 hover:text-red-700 bg-blue-50 px-1 py-1 rounded"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTransactionDeleteConfirm(ledger);
+                                      }}
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                    <button
+                                      className="flex text-gray-800 hover:text-gray-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded items-center"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTransactionDetailsModal({
+                                          isOpen: true,
+                                          customer: status.customer,
+                                          transactionType: ledger.type,
+                                          customerLedger: ledger,
+                                        });
+                                      }}
+                                    >
+                                      <Eye size={16} />
+                                      <span className="text-sm ml-2">View</span>
+                                    </button>
+                                    <button className="text-gray-800 hover:text-gray-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded items-center">
+                                      <ExternalLink size={16} />
+                                    </button>
+                                  </div>
+                                )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
 
-            {/* Bottom Actions and Pagination */}
-            <div className="flex items-center justify-between mt-4">
-              <div className="flex items-center gap-3">
-                <button
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  onClick={() =>
-                    handleTransactionModalOpen(status.customer, "payIn")
-                  }
-                >
-                  <span className="text-lg">↓</span>
-                  You Got
-                </button>
-                <button
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                  onClick={() =>
-                    handleTransactionModalOpen(status.customer, "payOut")
-                  }
-                >
-                  <span className="text-lg">↑</span>
-                  You Gave
-                </button>
-              </div>
-
-              <div className="flex items-center gap-4">
-                {/* Prev Button */}
-                <button
-                  className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50  disabled:cursor-not-allowed"
-                  onClick={() =>
-                    setCurrentPage((p) =>
-                      Math.max(parseInt(p) - 1, 1).toString()
-                    )
-                  }
-                  disabled={loading || parseInt(currentPage) === 1}
-                >
-                  <ChevronLeft size={20} />
-                </button>
-
-                {/* Current Page */}
-                <span className="px-3 py-1 bg-blue-600 text-white rounded">
-                  {totalPages > 0 ? currentPage : 0} / {totalPages}
-                </span>
-
-                {/* Next Button */}
-                <button
-                  className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() =>
-                    setCurrentPage((p) =>
-                      Math.min(parseInt(p) + 1, totalPages).toString()
-                    )
-                  }
-                  disabled={
-                    loading ||
-                    parseInt(currentPage) === totalPages ||
-                    totalPages === 0
-                  }
-                >
-                  <ChevronRight size={20} />
-                </button>
-
-                {/* Rows per page */}
-                <div className="flex items-center gap-2 ml-4">
-                  <Select
-                    value={rowsPerPage}
-                    onValueChange={(value) => {
-                      setRowsPerPage(value);
-                      setCurrentPage("1"); // reset to first page when size changes
-                    }}
-                    disabled={loading}
+              {/* Bottom Actions and Pagination */}
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    onClick={() =>
+                      handleTransactionModalOpen(
+                        status.customer,
+                        "payIn",
+                        () => {
+                          toast({
+                            title: "PayIn Success",
+                            description: "Transaction created successfully.",
+                            variant: "success",
+                            duration: 3000,
+                          });
+                          fetchData();
+                        }
+                      )
+                    }
                   >
-                    <SelectTrigger id="size-disabled">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rowsOption.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <span className="text-lg">↓</span>
+                    You Got
+                  </button>
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    onClick={() =>
+                      handleTransactionModalOpen(
+                        status.customer,
+                        "payOut",
+                        () => {
+                          toast({
+                            title: "PayOut Success",
+                            description: "Transaction created successfully.",
+                            variant: "success",
+                            duration: 3000,
+                          });
+                          fetchData();
+                        }
+                      )
+                    }
+                  >
+                    <span className="text-lg">↑</span>
+                    You Gave
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  {/* Prev Button */}
+                  <button
+                    className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50  disabled:cursor-not-allowed"
+                    onClick={() =>
+                      setCurrentPage((p) =>
+                        Math.max(parseInt(p) - 1, 1).toString()
+                      )
+                    }
+                    disabled={loading || parseInt(currentPage) === 1}
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+
+                  {/* Current Page */}
+                  <span className="px-3 py-1 bg-blue-600 text-white rounded">
+                    {totalPages > 0 ? currentPage : 0} / {totalPages}
+                  </span>
+
+                  {/* Next Button */}
+                  <button
+                    className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() =>
+                      setCurrentPage((p) =>
+                        Math.min(parseInt(p) + 1, totalPages).toString()
+                      )
+                    }
+                    disabled={
+                      loading ||
+                      parseInt(currentPage) === totalPages ||
+                      totalPages === 0
+                    }
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+
+                  {/* Rows per page */}
+                  <div className="flex items-center gap-2 ml-4">
+                    <Select
+                      value={rowsPerPage}
+                      onValueChange={(value) => {
+                        setRowsPerPage(value);
+                        setCurrentPage("1"); // reset to first page when size changes
+                      }}
+                      disabled={loading}
+                    >
+                      <SelectTrigger id="size-disabled">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rowsOption.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </Modal>
+          <TransactionDetailsDrawer
+            isOpen={transactionDetailsModal.isOpen}
+            onOpenChange={(open) => {
+              setTransactionDetailsModal((prev) => ({ ...prev, isOpen: open }));
+            }}
+            transactionType={transactionDetailsModal.transactionType}
+            customer={transactionDetailsModal.customer}
+            customerLedger={transactionDetailsModal.customerLedger}
+          />
+        </Modal>
+        <DeleteDialog
+          open={deleteDialog.isOpen}
+          onClose={() =>
+            setDeleteDialog({
+              isOpen: false,
+              onConfirm: () => {},
+              itemName: null,
+            })
+          }
+          onConfirm={deleteDialog.onConfirm}
+          itemName={deleteDialog.itemName}
+          loading={loading}
+        />
+      </>
     );
   }
 );
@@ -1372,10 +1533,14 @@ export default function Customers() {
     isOpen: boolean;
     customer: Customer | null;
     transactionType: "payIn" | "payOut" | null;
+    onSuccess?: () => void;
+    ledger?: CustomerLedger;
   }>({
     isOpen: false,
     customer: null,
     transactionType: null,
+    onSuccess: () => {},
+    ledger: undefined,
   });
 
   const handleTransactionModalOpenChange = (open: boolean) => {
@@ -1383,24 +1548,37 @@ export default function Customers() {
       isOpen: open,
       customer: null,
       transactionType: null,
+      onSuccess: () => {},
+      ledger: undefined,
     });
   };
 
+  const { toast } = useToast();
+
   const handleTransactionModalOpen = (
     customer: Customer,
-    transactionType: "payIn" | "payOut"
+    transactionType: "payIn" | "payOut",
+    onSuccess?: () => void,
+    ledger?: CustomerLedger
   ) => {
     setTransactionModal({
       isOpen: true,
       customer,
       transactionType,
+      onSuccess,
+      ledger,
     });
   };
 
   const handleCopy = async (name: string, value: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${name} copied!`);
+      toast({
+        title: "Success",
+        description: `${name} copied!`,
+        variant: "success",
+        duration: 3000,
+      });
     } catch (err) {
       console.error("Copy failed", err);
     }
@@ -1423,6 +1601,26 @@ export default function Customers() {
     };
     initData();
   }, [profile, fetchCustomers]);
+
+  useEffect(() => {
+    if (!showLedgerModal) return;
+
+    setLedgerModal((prev) => {
+      const matchedCustomer = customers.data.find(
+        (c) => c.id === prev.customer?.id
+      );
+
+      // If customer is the same, don't trigger a state update
+      if (!matchedCustomer || matchedCustomer === prev.customer) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        customer: matchedCustomer,
+      };
+    });
+  }, [customers, showLedgerModal]);
 
   const validateForm = (data) => {
     const newErrors = {};
@@ -1469,15 +1667,30 @@ export default function Customers() {
     try {
       if (editingCustomer) {
         await updateCustomer(editingCustomer.id, customerData);
-        toast.success("Customer updated successfully!");
+        toast({
+          title: "Success",
+          description: "Customer updated successfully.",
+          variant: "success",
+          duration: 3000,
+        });
       } else {
         await createCustomer(customerData);
-        toast.success("Customer created successfully!");
+        toast({
+          title: "Success",
+          description: "Customer created successfully.",
+          variant: "success",
+          duration: 3000,
+        });
       }
       handleCloseModal();
     } catch (error) {
       console.error("Error saving customer:", error);
-      toast.error("Failed to save customer");
+      toast({
+        title: "Failed",
+        description: "Failed to save customer",
+        variant: "error",
+        duration: 3000,
+      });
     }
   };
 
@@ -1522,17 +1735,30 @@ export default function Customers() {
     setShowGoogleAuth(false);
     try {
       await fetchCustomers();
-      toast.success("Google account connected! You can now manage customers.");
+      toast({
+        title: "Success",
+        description: "Google account connected! You can now manage customers.",
+        variant: "success",
+        duration: 3000,
+      });
     } catch (error) {
       console.error("Error after Google auth:", error);
-      toast.error("Connected to Google but had issues setting up spreadsheet.");
+      toast({
+        title: "Failed",
+        description:
+          "Connected to Google but had issues setting up spreadsheet.",
+        variant: "error",
+        duration: 3000,
+      });
     }
   };
 
   const filteredCustomers = customers.data.filter((customer) => {
     const matchesSearch =
       customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer?.companyDetails?.companyName
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
       customer.phone?.includes(searchTerm) ||
       customer.id?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
@@ -1579,6 +1805,21 @@ export default function Customers() {
     },
   ];
 
+  const statusFilterData = [
+    {
+      value: "all",
+      label: "All Status",
+    },
+    {
+      value: "active",
+      label: "Active",
+    },
+    {
+      value: "inactive",
+      label: "Inactive",
+    },
+  ];
+
   if (loading && !customers.data.length) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1604,7 +1845,18 @@ export default function Customers() {
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                toast({
+                  title: "Success",
+                  description: "Transaction deleted successfully.",
+                  variant: "success",
+                  duration: 3000,
+                });
+              }}
+            >
               <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -1656,19 +1908,18 @@ export default function Customers() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="all">All Status</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-              <Button variant="outline" size="sm">
-                <FunnelIcon className="h-4 w-4 mr-2" />
-                More Filters
-              </Button>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusFilterData.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </Card>
@@ -1701,8 +1952,10 @@ export default function Customers() {
                   {filteredCustomers.map((customer, index) => {
                     const actions = [
                       {
-                        label: "View",
-                        icon: <Eye className="w-6 h-6 text-blue-600" />,
+                        label: "Ledger",
+                        icon: (
+                          <FileTextIcon className="w-6 h-6 text-blue-600" />
+                        ),
                         onClick: () =>
                           setLedgerModal({ isOpen: true, customer: customer }),
                       },
@@ -1712,7 +1965,14 @@ export default function Customers() {
                           <ArrowDownCircleIcon className="w-6 h-6 text-green-600" />
                         ),
                         onClick: () =>
-                          handleTransactionModalOpen(customer, "payIn"),
+                          handleTransactionModalOpen(customer, "payIn", () => {
+                            toast({
+                              title: "PayIn Success",
+                              description: "Transaction created successfully.",
+                              variant: "success",
+                              duration: 3000,
+                            });
+                          }),
                       },
                       {
                         label: "You Gave",
@@ -1720,7 +1980,14 @@ export default function Customers() {
                           <ArrowUpCircleIcon className="w-6 h-6 text-red-600" />
                         ),
                         onClick: () =>
-                          handleTransactionModalOpen(customer, "payOut"),
+                          handleTransactionModalOpen(customer, "payOut", () => {
+                            toast({
+                              title: "PayOut Success",
+                              description: "Transaction created successfully.",
+                              variant: "success",
+                              duration: 3000,
+                            });
+                          }),
                       },
                       {
                         label: "Edit",
@@ -1816,20 +2083,18 @@ export default function Customers() {
 
                         <td
                           className={`px-6 py-4 whitespace-nowrap ${getLightStatusColor(
-                            customer.account.type || "debit",
-                            customer.account?.balance || "0"
+                            customer?.balance
                           )}`}
                         >
                           <p
                             className={`px-2 py-1 w-full text-base font-semibold tracking-wide text-right ${getStatusColor(
-                              customer.account.type || "debit",
-                              customer.account?.balance || "0"
+                              customer?.balance
                             )}`}
                           >
-                            {formatCurrency(customer.account.balance)}
+                            {formatCurrency(Math.abs(customer.balance))}
                             <p className="text-[10px] font-medium">
-                              {customer.account.balance !== "" &&
-                                (customer.account.type === "credit"
+                              {customer.balance !== 0 &&
+                                (customer.balance > 0
                                   ? "You Pay↑"
                                   : "You Collect↓")}
                             </p>
@@ -1903,7 +2168,7 @@ export default function Customers() {
             <p className="bg-red-600 px-2  py-1 text-base text-white rounded-lg">
               You Collect ↓{" "}
               <span className="font-medium tracking-wide">
-                {formatCurrency(customers.statusInsights.debit)}
+                {formatCurrency(Math.abs(customers.statusInsights.debit))}
               </span>
             </p>
           </div>
@@ -1931,6 +2196,8 @@ export default function Customers() {
         onOpenChange={handleTransactionModalOpenChange}
         transactionType={transactionModal.transactionType}
         customer={transactionModal.customer}
+        onSuccess={transactionModal.onSuccess}
+        ledger={transactionModal.ledger}
       />
 
       <GoogleAuthModal

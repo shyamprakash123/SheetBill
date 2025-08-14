@@ -18,7 +18,7 @@ import {
 import { Textarea } from "./DatePickerComponent/TextArea";
 import Card from "./ui/Card";
 import { Button } from "./DatePickerComponent/components/Button";
-import { BankDetails, Customer } from "../lib/backend-service";
+import { BankDetails, Customer, CustomerLedger } from "../lib/backend-service";
 import { useEffect, useState } from "react";
 import { Label } from "./DatePickerComponent/Label";
 import { Input } from "./DatePickerComponent/Input";
@@ -36,6 +36,8 @@ type PaymentTransactionProps = {
   onOpenChange: (open: boolean) => void;
   transactionType: "payIn" | "payOut";
   customer: Customer;
+  onSuccess?: () => void;
+  ledger?: CustomerLedger;
 };
 
 function formatBanksList(banks: BankDetails[]): string {
@@ -52,15 +54,21 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
   onOpenChange,
   transactionType,
   customer,
+  onSuccess,
+  ledger,
 }) => {
-  const { settings, fetchAllSettings, createTransaction } = useInvoiceStore();
+  console.log(ledger);
+  const { settings, fetchAllSettings, createTransaction, updateTransaction } =
+    useInvoiceStore();
 
   const navigate = useNavigate();
 
   const paymentTypes = ["Card", "Cash", "Cheque", "EMI", "Net Banking", "UPI"];
 
   const [amount, setAmount] = useState("");
-  const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
+  const [paymentDate, setPaymentDate] = useState<Date | undefined>(
+    ledger ? new Date(ledger.date) : new Date()
+  );
   const defaultbankAccount = settings?.banks
     ? (() => {
         const defaultBank = JSON.parse(settings.banks.banks).find(
@@ -95,6 +103,35 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
     if (!settings) initData();
   }, []);
 
+  useEffect(() => {
+    if (ledger) {
+      setAmount(Math.abs(ledger.amount).toString());
+      setPaymentDate(new Date(ledger.date));
+      setPaymentType(ledger.paymentMode || paymentTypes[0]);
+      setNotes(ledger.notes ?? "");
+
+      if (settings?.banks) {
+        const fetchedbank = ledger.bank_account;
+        const selectedBank = JSON.parse(settings.banks.banks).find(
+          (bank) => bank.id === fetchedbank.id
+        );
+        if (selectedBank) {
+          const { bank_name, bank_accountNumber, ...others } = selectedBank;
+          setBankAccount({
+            value: bank_name,
+            id: bank_accountNumber,
+            others,
+          });
+        }
+      }
+    } else {
+      setAmount("");
+      setPaymentDate(new Date());
+      setPaymentType(paymentTypes[0]);
+      setBankAccount(defaultbankAccount);
+    }
+  }, [ledger, settings]);
+
   function onAddBankAccount() {
     navigate("/app/settings?subtab=financial&tab=banks");
   }
@@ -109,21 +146,36 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
 
     try {
       setLoading(true);
-      const success = await createTransaction(
-        customer,
-        parseFloat(amount),
-        transactionType,
-        paymentDate,
-        paymentType,
-        bankAccount,
-        notes
-      );
-      setLoading(false);
-      if (success) {
-        // Optionally, reset the form or redirect
-        onOpenChange(false);
+      let updatedLedger;
+      if (ledger) {
+        updatedLedger = await updateTransaction(
+          paymentDate,
+          paymentType,
+          bankAccount,
+          notes,
+          ledger
+        );
       } else {
+        await createTransaction(
+          customer,
+          parseFloat(amount),
+          transactionType,
+          paymentDate,
+          paymentType,
+          bankAccount,
+          notes
+        );
       }
+      setLoading(false);
+      // Optionally, reset the form or redirect
+      onSuccess?.(updatedLedger);
+      setAmount("");
+      setPaymentDate(new Date());
+      setBankAccount(defaultbankAccount);
+      setPaymentType(paymentTypes[0]);
+      setNotes("");
+      setIsInputError(false);
+      onOpenChange(false);
     } catch (error) {
       console.error("Error adding payment:", error);
       setLoading(false);
@@ -134,13 +186,30 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
     <Drawer
       open={isOpen}
       onOpenChange={(open) => {
-        if (!open && !loading) {
+        if (!open && !loading && !ledger?.ledger_id) {
           if (
             amount.trim() !== "" ||
             !isSameDay(paymentDate, new Date()) ||
             bankAccount?.id !== defaultbankAccount?.id ||
             paymentType !== paymentTypes[0] ||
             notes.trim() !== ""
+          ) {
+            setConfirmationDialogOpen(true);
+            return;
+          }
+          setConfirmationDialogOpen(false);
+          setAmount("");
+          setPaymentDate(new Date());
+          setBankAccount(defaultbankAccount);
+          setPaymentType(paymentTypes[0]);
+          setNotes("");
+          setIsInputError(false);
+        } else if (!open && !loading && ledger?.ledger_id) {
+          if (
+            !isSameDay(paymentDate, new Date(ledger?.date)) ||
+            bankAccount?.id !== ledger?.bank_account?.id ||
+            paymentType !== ledger?.paymentMode ||
+            notes.trim() !== ledger?.notes
           ) {
             setConfirmationDialogOpen(true);
             return;
@@ -159,6 +228,7 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
       <DrawerContent className="sm:max-w-2xl overflow-hidden flex flex-col h-full">
         <DrawerHeader className="flex-shrink-0 px-6 py-2" disabled={loading}>
           <DrawerTitle>
+            {ledger ? "Edit " : ""}
             {transactionType === "payIn" ? "Pay In" : "Pay Out"}
           </DrawerTitle>
           <DrawerDescription className="mt-1 text-base">
@@ -185,7 +255,6 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
                 <UIButton
                   variant="danger"
                   onClick={() => {
-                    setConfirmationDialogOpen(false);
                     setConfirmationDialogOpen(false);
                     setAmount("");
                     setPaymentDate(new Date());
@@ -223,6 +292,7 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
                     className="pl-7"
                     hasError={isInputError}
                     aria-errormessage="Required"
+                    disabled={ledger ? true : false}
                   />
                 </div>
               </div>
@@ -379,7 +449,7 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
               onClick={handleAddPayment}
               isLoading={loading}
             >
-              Add Payment
+              {ledger ? "Edit" : "Add"} Payment
             </Button>
           )}
         </DrawerFooter>

@@ -5,7 +5,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
+// import { Toaster } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import Layout from "./components/Layout";
 import Auth from "./components/Auth";
@@ -32,6 +32,7 @@ import SettingsContent from "./components/settings/SettingsContent";
 import BackendInitializer from "./components/wrapper/BackendInitializer";
 import InvoiceForm from "./components/invoice/InvoiceForm";
 import EditInvoiceForm from "./components/invoice/EditInvoiceForm";
+import { Toaster } from "./components/DatePickerComponent/Toaster";
 
 function App() {
   const { loading } = useAuthStore();
@@ -60,6 +61,7 @@ function App() {
   return (
     <Router>
       <div className={`App ${isDark ? "dark" : ""}`}>
+        <Toaster />
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -126,7 +128,7 @@ function App() {
           </Routes>
         </AnimatePresence>
 
-        <Toaster
+        {/* <Toaster
           position="top-right"
           toastOptions={{
             duration: 4000,
@@ -136,7 +138,7 @@ function App() {
               border: isDark ? "1px solid #4b5563" : "1px solid #e5e7eb",
             },
           }}
-        />
+        /> */}
       </div>
     </Router>
   );

@@ -1,49 +1,49 @@
-import React, { useState } from 'react'
-import { motion } from 'framer-motion'
-import { 
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+import {
   MagnifyingGlassIcon,
   BellIcon,
   UserCircleIcon,
   Bars3Icon,
-  CommandLineIcon
-} from '@heroicons/react/24/outline'
-import { useAuthStore } from '../../store/auth'
-import ThemeToggle from './ThemeToggle'
-import Button from './Button'
-import { clsx } from 'clsx'
+  CommandLineIcon,
+} from "@heroicons/react/24/outline";
+import { useAuthStore } from "../../store/auth";
+import ThemeToggle from "./ThemeToggle";
+import Button from "./Button";
+import { clsx } from "clsx";
 
 interface TopBarProps {
-  onToggleSidebar: () => void
-  onOpenCommandPalette: () => void
-  sidebarCollapsed: boolean
-  className?: string
+  onToggleSidebar: () => void;
+  onOpenCommandPalette: () => void;
+  sidebarCollapsed: boolean;
+  className?: string;
 }
 
-export default function TopBar({ 
-  onToggleSidebar, 
-  onOpenCommandPalette, 
+export default function TopBar({
+  onToggleSidebar,
+  onOpenCommandPalette,
   sidebarCollapsed,
-  className 
+  className,
 }: TopBarProps) {
-  const { profile, signOut } = useAuthStore()
-  const [searchFocused, setSearchFocused] = useState(false)
-  const [showUserMenu, setShowUserMenu] = useState(false)
+  const { profile, signOut } = useAuthStore();
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleSignOut = async () => {
     try {
-      await signOut()
+      await signOut();
     } catch (error) {
-      console.error('Error signing out:', error)
+      console.error("Error signing out:", error);
     }
-  }
+  };
 
   return (
     <motion.div
       initial={false}
       animate={{ paddingLeft: sidebarCollapsed ? 80 : 280 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
       className={clsx(
-        'fixed top-0 right-0 left-0 h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 z-30',
+        "fixed top-0 right-0 left-0 h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 z-30",
         className
       )}
     >
@@ -60,9 +60,9 @@ export default function TopBar({
           {/* Enhanced Search Bar */}
           <div className="relative">
             <motion.div
-              animate={{ 
+              animate={{
                 width: searchFocused ? 400 : 300,
-                scale: searchFocused ? 1.02 : 1
+                scale: searchFocused ? 1.02 : 1,
               }}
               transition={{ duration: 0.2 }}
               className="relative"
@@ -150,5 +150,5 @@ export default function TopBar({
         </div>
       </div>
     </motion.div>
-  )
+  );
 }

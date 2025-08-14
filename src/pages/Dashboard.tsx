@@ -105,7 +105,7 @@ export default function Dashboard() {
     },
     {
       name: "Customers",
-      value: customers.length.toString(),
+      value: customers.data.length.toString(),
       icon: UserGroupIcon,
       change: "+8.2%",
       changeType: "increase" as const,

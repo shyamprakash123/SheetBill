@@ -195,12 +195,12 @@ export class GoogleSheetsSupabaseService {
         "Name",
         "Email",
         "Phone",
-        "Address",
-        "City",
-        "State",
-        "Country",
-        "GSTIN",
-        "Created At",
+        "Company Details",
+        "Billing Address",
+        "Shipping Address",
+        "Other",
+        '=ARRAYFORMULA({"Balance";IF(B2:B="", "",SUMIF(Customer_Ledgers!C:C, B2:B, Customer_Ledgers!M:M))})',
+        "createdAt",
         "Status",
       ],
       Vendors: [
@@ -277,9 +277,14 @@ export class GoogleSheetsSupabaseService {
         "Cutomer ID",
         "Document Id",
         "Date",
+        "Date Formatted",
+        "Created Date",
         "Status",
-        "Amount",
-        "Balance",
+        "Type",
+        "Payment Mode",
+        "Bank",
+        "Notes",
+        '=ARRAYFORMULA({"Balance";IF(C2:C = "","", MAP(ROW(C2:C)-ROW(C2)+1, LAMBDA(r,SUMIFS(M$2:M,C$2:C, INDEX(C$2:C, r),F$2:F, "<" & INDEX(F$2:F, r))+SUMIFS(M$2:M,C$2:C, INDEX(C$2:C, r),F$2:F, "=" & INDEX(F$2:F, r),A$2:A, "<=" & INDEX(A$2:A, r)))))})',
       ],
 
       Customer_View_Ledgers: [""],
@@ -468,6 +473,36 @@ export class GoogleSheetsSupabaseService {
       {
         method: "POST",
         body: JSON.stringify({ values }),
+      }
+    );
+
+    return response.json();
+  }
+
+  // Delete a row from the sheet
+  async deleteRow(
+    spreadsheetId: string,
+    sheetId: number,
+    rowIndex: number
+  ): Promise<any> {
+    const response = await this.makeGoogleAPIRequest(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          requests: [
+            {
+              deleteDimension: {
+                range: {
+                  sheetId: sheetId, // Change to the correct sheetId
+                  dimension: "ROWS",
+                  startIndex: rowIndex - 1, // 0-based index
+                  endIndex: rowIndex, // exclusive
+                },
+              },
+            },
+          ],
+        }),
       }
     );
 

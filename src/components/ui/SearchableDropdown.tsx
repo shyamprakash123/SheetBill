@@ -22,6 +22,25 @@ interface SearchableDropdownProps {
   isCustomValue?: boolean;
   noSearch?: boolean;
 }
+const formatCurrency = (amount) => {
+  const formatter = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  });
+
+  // Get an array of the formatted parts (e.g., [{type: 'currency', value: '₹'}, {type: 'integer', value: '50,000'}])
+  const parts = formatter.formatToParts(amount || 0);
+
+  // Find the currency symbol and add a space, then join the parts back together
+  return parts
+    .map((part) => {
+      if (part.type === "currency") {
+        return `${part.value} `; // Add the space here
+      }
+      return part.value;
+    })
+    .join("");
+};
 
 export default function SearchableDropdown({
   options,
@@ -329,12 +348,14 @@ export default function SearchableDropdown({
                       <div className="flex flex-col items-end text-nowrap">
                         <p
                           className={`font-medium text-sm ${
-                            option.other.account.type === "debit"
-                              ? "text-red-600"
-                              : "text-green-600"
+                            option.balance !== 0
+                              ? option.balance < 0
+                                ? "text-red-600"
+                                : "text-green-600"
+                              : "text-gray-800 dark:text-gray-400"
                           }`}
                         >
-                          {option.balance}{" "}
+                          {formatCurrency(Math.abs(option.balance))}{" "}
                         </p>
                       </div>
                     )}

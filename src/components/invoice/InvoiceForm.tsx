@@ -152,7 +152,7 @@ function formatCustomerList(customers: Customer[]): string {
       phone,
       email,
       id: id,
-      balance: formatCurrency(other?.account?.balance),
+      balance: other?.balance,
       other,
     };
   });
