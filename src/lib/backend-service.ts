@@ -577,7 +577,7 @@ export class InvoiceService {
   // Customer CRUD operations
   async createCustomer(
     customerData: Omit<Customer, "id" | "createdAt">
-  ): Promise<Customer> {
+  ): Promise<{ customer: Customer; openingBalance: number | null }> {
     const customer: Customer = {
       id: `CUST-${Date.now()}`,
       ...customerData,
@@ -645,14 +645,14 @@ export class InvoiceService {
           range: "Customer_Ledgers!A2",
           values: [ledger_row],
         },
-    ];
+    ].filter(Boolean);
 
-    const batchUpdateRes = await this.sheetsService.batchUpdateSheetData(
+    const batchUpdateRes = await this.sheetsService.batchAppendSheetData(
       this.spreadsheetId,
       updateData
     );
 
-    return customer;
+    return { customer, openingBalance };
   }
 
   async getCustomers(): Promise<{
@@ -864,7 +864,7 @@ export class InvoiceService {
     }
   }
 
-  async createTransaction(
+  async createCustomerTransaction(
     customer: Customer,
     amount: number,
     transactionType: "payIn" | "payOut",
@@ -907,27 +907,6 @@ export class InvoiceService {
       ledger.amount,
     ];
 
-    // const sheetIds = await this.sheetsService.getSheetIdMap(this.spreadsheetId);
-
-    // const requests = [
-    //   {
-    //     appendCells: {
-    //       sheetId: sheetIds["Customer_Ledgers"],
-    //       rows: [
-    //         {
-    //           values: ledger_row.map((val) => getUserEnteredValue(val)),
-    //         },
-    //       ],
-    //       fields: "*",
-    //     },
-    //   },
-    // ];
-
-    // const batchUpdateRes = await this.sheetsService.batchUpdateSheet(
-    //   this.spreadsheetId,
-    //   requests
-    // );
-
     await this.sheetsService.appendToSheet(
       this.spreadsheetId,
       "Customer_Ledgers!A2",
@@ -937,7 +916,7 @@ export class InvoiceService {
     return true;
   }
 
-  async UpdateTransaction(
+  async UpdateCustomerTransaction(
     date: Date,
     paymentMode: string,
     bankAccount: any,
@@ -988,12 +967,412 @@ export class InvoiceService {
     return updated_ledger;
   }
 
-  async deleteTransaction(rowId: number): Promise<boolean> {
+  async deleteCustomerTransaction(rowId: number): Promise<boolean> {
     const sheetIds = await this.sheetsService.getSheetIdMap(this.spreadsheetId);
 
     await this.sheetsService.deleteRow(
       this.spreadsheetId,
       sheetIds["Customer_Ledgers"],
+      rowId
+    );
+
+    return true;
+  }
+
+  // Vendor CRUD operations
+  async createVendor(
+    vendorData: Omit<Customer, "id" | "createdAt">
+  ): Promise<{ vendor: Customer; openingBalance: number | null }> {
+    const vendor: Customer = {
+      id: `VEND-${Date.now()}`,
+      ...vendorData,
+      createdAt: new Date().toISOString(),
+    };
+
+    const row = [
+      "=ROW()",
+      vendor.id,
+      vendor.name,
+      vendor.email,
+      vendor.phone,
+      JSON.stringify(vendor.companyDetails),
+      JSON.stringify(vendor.billingAddress),
+      JSON.stringify(vendor.other),
+      ,
+      vendor.createdAt,
+      vendor.status,
+    ];
+
+    const openingBalance =
+      vendor?.balance != null
+        ? vendor?.accountType?.toLowerCase() === "credit"
+          ? Number(vendor.balance)
+          : -Number(vendor.balance)
+        : null;
+
+    const ledgerData: Omit<CustomerLedger, "ledger_id" | "date" | "balance"> = {
+      customer_id: vendor.id,
+      type: "Opening Balance",
+      status: "opening balance",
+      amount: openingBalance,
+    };
+
+    const ledger: CustomerLedger = {
+      ledger_id: `VENDLED-${Date.now()}`,
+      ...ledgerData,
+      date: new Date().toISOString(),
+    };
+
+    const ledger_row = [
+      "=ROW()",
+      ledger.ledger_id,
+      ledger.customer_id,
+      ledger.document_id || "",
+      ledger.date,
+      ledger.date.split("T")[0],
+      ledger.date,
+      ledger.status,
+      ledger.type || "",
+      ,
+      ,
+      ,
+      ledger.amount,
+    ];
+
+    const updateData = [
+      {
+        range: "Vendors!A2",
+        values: [row],
+      },
+      openingBalance &&
+        openingBalance !== 0 && {
+          range: "Vendor_Ledgers!A2",
+          values: [ledger_row],
+        },
+    ].filter(Boolean);
+
+    const batchUpdateRes = await this.sheetsService.batchAppendSheetData(
+      this.spreadsheetId,
+      updateData
+    );
+
+    return { vendor, openingBalance };
+  }
+
+  async getVendors(): Promise<{
+    statusInsights: Record<string, number>;
+    vendors: Customer[];
+  }> {
+    try {
+      const data = await this.sheetsService.getSheetData(
+        this.spreadsheetId,
+        "ViewVendors!A2:K"
+      );
+      if (!data || data.length === 0) {
+        return { statusInsights: {}, vendors: [] };
+      }
+
+      const statusObject = Object.fromEntries(data.slice(0, 2));
+
+      const fetchedVendors = data
+        .slice(2)
+        .map((row) => ({
+          row_id: row[0] || "",
+          id: row[1] || "",
+          name: row[2] || "",
+          email: row[3] || "",
+          phone: row[4] || "",
+          companyDetails: row[5] ? JSON.parse(row[5]) : null,
+          billingAddress: row[6] ? JSON.parse(row[6]) : null,
+          other: row[7] ? JSON.parse(row[7]) : null,
+          balance: row[8] || 0,
+          createdAt: row[9] || "",
+          status: (row[10] as Customer["status"]) || "Active",
+        }))
+        .filter((vendor) => vendor.id); // Filter out empty rows
+
+      return { statusInsights: statusObject, vendors: fetchedVendors };
+    } catch (error) {
+      console.error("Error getting vendors:", error);
+      return { statusInsights: {}, vendors: [] };
+    }
+  }
+
+  async updateVendor(
+    vendorId: string,
+    updates: Partial<Customer>
+  ): Promise<Customer> {
+    const vendors = await this.getVendors();
+    const vendorIndex = vendors.vendors.findIndex(
+      (vend) => vend.id === vendorId
+    );
+
+    if (vendorIndex === -1) {
+      throw new Error("Vendor not found");
+    }
+
+    const updatedVendor = {
+      ...vendors.vendors[vendorIndex],
+      ...updates,
+    };
+
+    const row = [
+      "=ROW()",
+      updates.id,
+      updates.name,
+      updates.email,
+      updates.phone,
+      JSON.stringify(updates.companyDetails),
+      JSON.stringify(updates.billingAddress),
+      JSON.stringify(updates.other),
+      ,
+      updates.createdAt,
+      updates.status,
+    ];
+
+    const rowNumber = updates?.row_id;
+    await this.sheetsService.updateSheetData(
+      this.spreadsheetId,
+      `Vendors!A${rowNumber}:K${rowNumber}`,
+      [row]
+    );
+
+    return updatedVendor;
+  }
+
+  async createVendorLedger(
+    ledgerData: Omit<CustomerLedger, "ledger_id" | "date" | "balance">
+  ): Promise<null> {
+    const ledger: CustomerLedger = {
+      ledger_id: `VENDLED-${Date.now()}`,
+      ...ledgerData,
+      date: new Date().toISOString(),
+    };
+
+    const row = [
+      "=ROW()",
+      ledger.ledger_id,
+      ledger.vendor_id,
+      ledger.document_id || "",
+      ledger.date,
+      ledger.date.split("T")[0],
+      ledger.date,
+      ledger.status,
+      ledger.type || "",
+      ,
+      ,
+      ,
+      ledger.amount,
+    ];
+
+    await this.sheetsService.appendToSheet(
+      this.spreadsheetId,
+      "Vendor_Ledgers!A2",
+      [row]
+    );
+    return null;
+  }
+
+  async getVendorLedger(
+    vendorId: string,
+    dateRange?: { from?: Date; to?: Date },
+    orderType: "ASC" | "DESC" = "DESC",
+    rowsPerPage = "20",
+    page = "1",
+    pendingOnly = false
+  ): Promise<{ count: number; data: CustomerLedger[] }> {
+    try {
+      let dateFilter = "";
+
+      if (dateRange?.from && dateRange?.to) {
+        // Both dates
+        const fromDate = dateRange.from.toLocaleDateString("en-CA");
+        const toDate = dateRange.to.toLocaleDateString("en-CA");
+        dateFilter = ` AND F >= date '${fromDate}' AND F <= date '${toDate}'`;
+      } else if (dateRange?.from) {
+        // Only from date
+        const fromDate = dateRange.from.toLocaleDateString("en-CA");
+        dateFilter = ` AND F = date '${fromDate}'`;
+      } else if (dateRange?.to) {
+        // Only to date
+        const toDate = dateRange.to.toLocaleDateString("en-CA");
+        dateFilter = ` AND F = date '${toDate}'`;
+      }
+
+      const query = `=QUERY(Vendor_Ledgers!A2:N, "SELECT * WHERE C = '${vendorId}'${dateFilter} ${
+        pendingOnly ? "AND H = 'pending'" : ""
+      } ORDER BY F ${orderType}, A ${orderType} LIMIT " & ${rowsPerPage} & " OFFSET " & ((${page} - 1) * ${rowsPerPage}), 0)`;
+
+      const paginationQuery = `=QUERY(Vendor_Ledgers!A2:N, "SELECT COUNT(A) WHERE C = '${vendorId}'${dateFilter} ${
+        pendingOnly ? "AND H = 'pending'" : ""
+      }", 0)`;
+
+      const updateData = [
+        {
+          range: "Vendor_View_Ledgers!A1:J",
+          values: [],
+        },
+        {
+          range: "Vendor_View_Ledgers!A3",
+          values: [[query]],
+        },
+        {
+          range: "Vendor_View_Ledgers!A1",
+          values: [[paginationQuery]],
+        },
+      ];
+
+      const batchUpdateRes = await this.sheetsService.batchUpdateSheetData(
+        this.spreadsheetId,
+        updateData
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const data = await this.sheetsService.getSheetData(
+        this.spreadsheetId,
+        "Vendor_View_Ledgers!A2:N"
+      );
+      if (!data || data.length === 0) {
+        return { count: 0, data: [] };
+      }
+
+      const count = data[0][0] || 0;
+
+      const queryData = data
+        .slice(1)
+        .map((row) => ({
+          row_id: row[0] || "",
+          ledger_id: row[1] || "",
+          vendor_id: row[2] || "",
+          document_id: row[3] || "",
+          date: row[4] || "",
+          dateFormatted: row[5] || "",
+          created_at: row[6] || "",
+          status: row[7] || "",
+          type: row[8] || "",
+          paymentMode: row[9] || "",
+          bank_account: row[10] ? JSON.parse(row[10]) : null,
+          notes: row[11] || "",
+          amount: row[12] || 0,
+          balance: row[13] || 0,
+        }))
+        .filter((vendor) => vendor.vendor_id); // Filter out empty rows
+
+      return { count, data: queryData };
+    } catch (error) {
+      console.error("Error getting vendor ledgers:", error);
+      return { count: 0, data: [] }; // Return empty array instead of throwing
+    }
+  }
+
+  async createVendorTransaction(
+    vendor: Customer,
+    amount: number,
+    transactionType: "payIn" | "payOut",
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string
+  ): Promise<boolean> {
+    let ledgerData: Omit<CustomerLedger, "ledger_id" | "date">;
+
+    ledgerData = {
+      vendor_id: vendor.id,
+      status: "paid",
+      type: transactionType,
+      document_id: "",
+      amount: transactionType === "payOut" ? -amount : amount,
+    };
+
+    const ledger: CustomerLedger = {
+      ledger_id: `VENDLED-${Date.now()}`,
+      ...ledgerData,
+      date: new Date().toISOString(),
+    };
+
+    console.log(date);
+
+    const ledger_row = [
+      "=ROW()",
+      ledger.ledger_id,
+      ledger.vendor_id,
+      ledger.document_id || "",
+      date.toISOString(),
+      date.toLocaleDateString("en-CA"),
+      ledger.date,
+      ledger.status,
+      ledger.type || "",
+      paymentMode,
+      bankAccount ? JSON.stringify(bankAccount) : "",
+      notes || "",
+      ledger.amount,
+    ];
+
+    await this.sheetsService.appendToSheet(
+      this.spreadsheetId,
+      "Vendor_Ledgers!A2",
+      [ledger_row]
+    );
+
+    return true;
+  }
+
+  async UpdateVendorTransaction(
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string,
+    vendorLedger: CustomerLedger
+  ): Promise<CustomerLedger> {
+    const updated_ledger = {
+      row_id: vendorLedger.row_id,
+      ledger_id: vendorLedger.ledger_id,
+      vendor_id: vendorLedger.vendor_id,
+      document_id: vendorLedger.document_id,
+      date: date.toISOString(),
+      dateFormatted: date.toLocaleDateString("en-CA"),
+      created_at: vendorLedger.created_at,
+      status: vendorLedger.status,
+      type: vendorLedger.type,
+      paymentMode: paymentMode,
+      bank_account: bankAccount ? JSON.stringify(bankAccount) : "",
+      notes: notes || "",
+      amount: vendorLedger.amount,
+      balance: vendorLedger.balance,
+    };
+
+    const ledger_row = [
+      "=ROW()",
+      vendorLedger.ledger_id,
+      vendorLedger.vendor_id,
+      vendorLedger.document_id || "",
+      date.toISOString(),
+      date.toLocaleDateString("en-CA"),
+      vendorLedger.created_at,
+      vendorLedger.status,
+      vendorLedger.type || "",
+      paymentMode,
+      bankAccount ? JSON.stringify(bankAccount) : "",
+      notes || "",
+      vendorLedger.amount,
+    ];
+
+    await this.sheetsService.updateSheetData(
+      this.spreadsheetId,
+      `Vendor_Ledgers!A${vendorLedger.row_id}:M${vendorLedger.row_id}`,
+      [ledger_row]
+    );
+
+    return updated_ledger;
+  }
+
+  async deleteVendorTransaction(rowId: number): Promise<boolean> {
+    const sheetIds = await this.sheetsService.getSheetIdMap(this.spreadsheetId);
+
+    await this.sheetsService.deleteRow(
+      this.spreadsheetId,
+      sheetIds["Vendor_Ledgers"],
       rowId
     );
 

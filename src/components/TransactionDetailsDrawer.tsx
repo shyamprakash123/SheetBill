@@ -1,4 +1,3 @@
-import { DatePicker } from "./DatePickerComponent/DatePicker";
 import {
   Drawer,
   DrawerBody,
@@ -8,28 +7,14 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
 } from "./DatePickerComponent/Drawer";
-import {
-  RadioCardGroup,
-  RadioCardItem,
-  RadioCardIndicator,
-} from "./DatePickerComponent/RadioCardGroup";
-import { Textarea } from "./DatePickerComponent/TextArea";
 import Card from "./ui/Card";
 import { Button } from "./DatePickerComponent/components/Button";
-import { BankDetails, Customer, CustomerLedger } from "../lib/backend-service";
-import { useEffect, useState } from "react";
-import { Label } from "./DatePickerComponent/Label";
-import { Input } from "./DatePickerComponent/Input";
-import { Switch } from "./DatePickerComponent/Switch";
-import SearchableDropdown from "./ui/SearchableDropdown";
-import { useInvoiceStore } from "../store/invoice";
+import { Customer, CustomerLedger } from "../lib/backend-service";
+import { useState } from "react";
 import { Banknote } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import CircularProgress from "@mui/material/CircularProgress";
-import { format, isSameDay } from "date-fns";
-import UIButton from "./ui/Button";
+import { format } from "date-fns";
 import { Badge } from "./DatePickerComponent/Badge";
 
 type TransactionDetailsProps = {
@@ -77,15 +62,6 @@ const formatCurrency = (amount) => {
     .join("");
 };
 
-function formatBanksList(banks: BankDetails[]): string {
-  const parsedBanks = JSON.parse(banks.banks);
-  const mappedBanks = parsedBanks.map((bank, index) => {
-    const { bank_name, bank_accountNumber, ...others } = bank;
-    return { value: `${bank_name}`, id: bank_accountNumber, others };
-  });
-  return [...mappedBanks, { value: "Cash", id: "cash" }];
-}
-
 const TransactionDetailsDrawer: React.FC<TransactionDetailsProps> = ({
   isOpen,
   onOpenChange,
@@ -93,49 +69,7 @@ const TransactionDetailsDrawer: React.FC<TransactionDetailsProps> = ({
   customer,
   customerLedger,
 }) => {
-  const { settings, fetchAllSettings, createTransaction } = useInvoiceStore();
-
-  const navigate = useNavigate();
-
-  const paymentTypes = ["Card", "Cash", "Cheque", "EMI", "Net Banking", "UPI"];
-
-  const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
-  const defaultbankAccount = settings?.banks
-    ? (() => {
-        const defaultBank = JSON.parse(settings.banks.banks).find(
-          (bank) => bank.isDefault
-        );
-        if (!defaultBank) return null;
-
-        const { bank_name, bank_accountNumber, ...others } = defaultBank;
-        return {
-          value: bank_name,
-          id: bank_accountNumber,
-          others,
-        };
-      })()
-    : null;
-  const [bankAccount, setBankAccount] = useState(defaultbankAccount);
-  const [paymentType, setPaymentType] = useState(paymentTypes[0]);
-  const [notes, setNotes] = useState("");
-
-  const [isInputError, setIsInputError] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  //   useEffect(() => {
-  //     const initData = async () => {
-  //       try {
-  //         const fetchedSettings = await fetchAllSettings();
-  //       } catch (error) {
-  //         console.error("Error initializing sales data:", error);
-  //       }
-  //     };
-  //     if (!settings) initData();
-  //   }, []);
-
-  //   function onAddBankAccount() {
-  //     navigate("/app/settings?subtab=financial&tab=banks");
-  //   }
 
   return (
     <Drawer
@@ -225,7 +159,7 @@ const TransactionDetailsDrawer: React.FC<TransactionDetailsProps> = ({
 
                   {/* Bank */}
                   <div className="space-y-1">
-                    {customerLedger?.bank_account?.id !== "Cash" ? (
+                    {customerLedger?.bank_account?.id !== "cash" ? (
                       <>
                         <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">
                           Bank
@@ -239,12 +173,12 @@ const TransactionDetailsDrawer: React.FC<TransactionDetailsProps> = ({
                             <p className="text-sm text-gray-500">
                               IFSC:{" "}
                               {customerLedger?.bank_account?.others
-                                .bank_ifscCode || "Not Available"}
+                                ?.bank_ifscCode || "Not Available"}
                             </p>
                           </div>
                         </p>
                       </>
-                    ) : customerLedger?.bank_account?.id === "Cash" ? (
+                    ) : customerLedger?.bank_account?.id === "cash" ? (
                       <>
                         <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">
                           Cash

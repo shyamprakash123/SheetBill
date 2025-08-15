@@ -958,7 +958,8 @@ const LedgerModal = React.memo(
       itemName: null,
     });
 
-    const { fetchCustomerLedger, deleteTransaction } = useInvoiceStore();
+    const { fetchCustomerLedger, deleteCustomerTransaction } =
+      useInvoiceStore();
 
     const fetchData = async () => {
       try {
@@ -1011,7 +1012,7 @@ const LedgerModal = React.memo(
     const handleDeleteTransaction = async (row_id: number) => {
       try {
         setLoading(true);
-        await deleteTransaction(row_id);
+        await deleteCustomerTransaction(row_id);
         setDeleteDialog({ isOpen: false, onConfirm: () => {}, itemName: null });
         toast({
           title: "Success",
@@ -1535,12 +1536,14 @@ export default function Customers() {
     transactionType: "payIn" | "payOut" | null;
     onSuccess?: () => void;
     ledger?: CustomerLedger;
+    userType: "customer" | "vendor";
   }>({
     isOpen: false,
     customer: null,
     transactionType: null,
     onSuccess: () => {},
     ledger: undefined,
+    userType: "customer",
   });
 
   const handleTransactionModalOpenChange = (open: boolean) => {
@@ -1550,6 +1553,7 @@ export default function Customers() {
       transactionType: null,
       onSuccess: () => {},
       ledger: undefined,
+      userType: "customer",
     });
   };
 
@@ -1567,6 +1571,7 @@ export default function Customers() {
       transactionType,
       onSuccess,
       ledger,
+      userType: "customer",
     });
   };
 
@@ -2198,6 +2203,7 @@ export default function Customers() {
         customer={transactionModal.customer}
         onSuccess={transactionModal.onSuccess}
         ledger={transactionModal.ledger}
+        userType={transactionModal.userType}
       />
 
       <GoogleAuthModal

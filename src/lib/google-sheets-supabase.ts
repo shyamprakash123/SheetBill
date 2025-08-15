@@ -199,21 +199,22 @@ export class GoogleSheetsSupabaseService {
         "Billing Address",
         "Shipping Address",
         "Other",
-        '=ARRAYFORMULA({"Balance";IF(B2:B="", "",SUMIF(Customer_Ledgers!C:C, B2:B, Customer_Ledgers!M:M))})',
+        '=ARRAYFORMULA({"Balance"; IF(INDIRECT("B2:B")="", "", SUMIF(Customer_Ledgers!C:C, INDIRECT("B2:B"), Customer_Ledgers!M:M))})',
         "createdAt",
         "Status",
       ],
       Vendors: [
-        "Vendor ID",
+        "Row ID",
+        "Customer ID",
         "Name",
         "Email",
         "Phone",
-        "Address",
-        "City",
-        "State",
-        "Country",
-        "GSTIN",
-        "Created At",
+        "Company Details",
+        "Billing Address",
+        "Shipping Address",
+        "Other",
+        '=ARRAYFORMULA({"Balance"; IF(INDIRECT("B2:B")="", "", SUMIF(Vendor_Ledgers!C:C, INDIRECT("B2:B"), Vendor_Ledgers!M:M))})',
+        "createdAt",
         "Status",
       ],
       Quotations: [
@@ -269,7 +270,19 @@ export class GoogleSheetsSupabaseService {
 
       ViewInvoices: ['=SORT(INDIRECT("Invoices!A2:AH"), 1, FALSE)'],
 
-      ViewCustomers: ['=SORT(INDIRECT("Customers!A2:AL"), 1, FALSE)'],
+      ViewCustomers: [
+        '={"Type","Total Balance"; "debit",SUMIF(Customers!J2:J,"<0",Customers!J2:J); "credit",SUMIF(Customers!J2:J,">0",Customers!J2:J)}',
+        ,
+        ,
+        '=SORT(INDIRECT("Customers!A2:AL"), 1, FALSE)',
+      ],
+
+      ViewVendors: [
+        '={"Type","Total Balance"; "debit",SUMIF(Vendors!I2:I,"<0",Vendors!I2:I); "credit",SUMIF(Vendors!I2:I,">0",Vendors!I2:I)}',
+        ,
+        ,
+        '=SORT(INDIRECT("Vendors!A2:AK"), 1, FALSE)',
+      ],
 
       Customer_Ledgers: [
         "Row ID",
@@ -284,10 +297,28 @@ export class GoogleSheetsSupabaseService {
         "Payment Mode",
         "Bank",
         "Notes",
-        '=ARRAYFORMULA({"Balance";IF(C2:C = "","", MAP(ROW(C2:C)-ROW(C2)+1, LAMBDA(r,SUMIFS(M$2:M,C$2:C, INDEX(C$2:C, r),F$2:F, "<" & INDEX(F$2:F, r))+SUMIFS(M$2:M,C$2:C, INDEX(C$2:C, r),F$2:F, "=" & INDEX(F$2:F, r),A$2:A, "<=" & INDEX(A$2:A, r)))))})',
+        '=ARRAYFORMULA({"Balance";IF(INDIRECT("C2:C") = "","", MAP(ROW(INDIRECT("C2:C"))-ROW(INDIRECT("C2"))+1, LAMBDA(r,SUMIFS(M$2:M,C$2:C, INDEX(C$2:C, r),F$2:F, "<" & INDEX(F$2:F, r))+SUMIFS(M$2:M,C$2:C, INDEX(C$2:C, r),F$2:F, "=" & INDEX(F$2:F, r),A$2:A, "<=" & INDEX(A$2:A, r)))))})',
+      ],
+
+      Vendor_Ledgers: [
+        "Row ID",
+        "Ledger ID",
+        "Vendor ID",
+        "Document Id",
+        "Date",
+        "Date Formatted",
+        "Created Date",
+        "Status",
+        "Type",
+        "Payment Mode",
+        "Bank",
+        "Notes",
+        '=ARRAYFORMULA({"Balance";IF(INDIRECT("C2:C") = "","", MAP(ROW(INDIRECT("C2:C"))-ROW(INDIRECT("C2"))+1, LAMBDA(r,SUMIFS(M$2:M,C$2:C, INDEX(C$2:C, r),F$2:F, "<" & INDEX(F$2:F, r))+SUMIFS(M$2:M,C$2:C, INDEX(C$2:C, r),F$2:F, "=" & INDEX(F$2:F, r),A$2:A, "<=" & INDEX(A$2:A, r)))))})',
       ],
 
       Customer_View_Ledgers: [""],
+
+      Vendor_View_Ledgers: [""],
 
       // Initialize Settings sheet with structured key-value rows
       Settings: [
@@ -394,6 +425,26 @@ export class GoogleSheetsSupabaseService {
     );
 
     return response.json();
+  }
+
+  // batch append data to multiple ranges in a sheet
+  async batchAppendSheetData(
+    spreadsheetId: string,
+    appends: { range: string; values: any[][] }[]
+  ): Promise<any[]> {
+    return Promise.all(
+      appends.map(({ range, values }) =>
+        this.makeGoogleAPIRequest(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(
+            range
+          )}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+          {
+            method: "POST",
+            body: JSON.stringify({ values }),
+          }
+        ).then((res) => res.json())
+      )
+    );
   }
 
   // Batch update sheet data

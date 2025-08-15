@@ -22,6 +22,7 @@ interface InvoiceState {
   service: InvoiceService | null;
   invoices: Invoice[];
   customers: { statusInsights: Record<string, number>; data: Customer[] };
+  vendors: { statusInsights: Record<string, number>; data: Customer[] };
   customer_ledgers: CustomerLedger[];
   products: Product[];
   settings: Settings;
@@ -54,7 +55,7 @@ interface InvoiceState {
     currentPage?: string,
     pendingOnly?: boolean
   ) => Promise<{ count: number; data: CustomerLedger[] }>;
-  createTransaction: (
+  createCustomerTransaction: (
     customer: Customer,
     amount: number,
     transactionType: "payIn" | "payOut",
@@ -63,14 +64,46 @@ interface InvoiceState {
     bankAccount: any,
     notes: string
   ) => Promise<boolean>;
-  updateTransaction: (
+  updateCustomerTransaction: (
     date: Date,
     paymentMode: string,
     bankAccount: any,
     notes: string,
     customerLedger: CustomerLedger
   ) => Promise<CustomerLedger>;
-  deleteTransaction: (rowId: number) => Promise<boolean>;
+  deleteCustomerTransaction: (rowId: number) => Promise<boolean>;
+
+  // Vendor operations
+  fetchVendors: () => Promise<void>;
+  createVendor: (
+    vendor: Omit<Customer, "id" | "createdAt">
+  ) => Promise<Customer>;
+  updateVendor: (id: string, updates: Partial<Customer>) => Promise<Customer>;
+  fetchVendorLedger: (
+    vendor_id: string,
+    dateRange?: { from?: Date; to?: Date },
+    orderType?: "ASC" | "DESC",
+    rowsPerPage?: string,
+    currentPage?: string,
+    pendingOnly?: boolean
+  ) => Promise<{ count: number; data: CustomerLedger[] }>;
+  createVendorTransaction: (
+    vendor: Customer,
+    amount: number,
+    transactionType: "payIn" | "payOut",
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string
+  ) => Promise<boolean>;
+  updateVendorTransaction: (
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string,
+    vendorLedger: CustomerLedger
+  ) => Promise<CustomerLedger>;
+  deleteVendorTransaction: (rowId: number) => Promise<boolean>;
 
   // Product operations
   fetchProducts: () => Promise<void>;
@@ -108,7 +141,8 @@ interface InvoiceState {
 export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   service: null,
   invoices: [],
-  customers: [],
+  customers: { statusInsights: {}, data: [] },
+  vendors: { statusInsights: {}, data: [] },
   products: [],
   settings: {
     companyDetails: {},
@@ -166,6 +200,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         await Promise.all([
           get().fetchInvoices(),
           get().fetchCustomers(),
+          get().fetchVendors(),
           get().fetchProducts(),
         ]);
       } catch (dataError) {
@@ -293,13 +328,39 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const customer = await service.createCustomer(customerData);
-      // console.log(customer);
-      // set((state) => {
-      //   const data = { customers: [customer, ...state.customers] };
-      //   console.log(data);
-      //   return data;
-      // });
+      const { customer, openingBalance } = await service.createCustomer(
+        customerData
+      );
+
+      const initialBalance = openingBalance || 0;
+      const updatedCustomer = {
+        ...customer,
+        balance: initialBalance,
+      };
+
+      set((state) => {
+        const updatedData = [updatedCustomer, ...state.customers.data];
+
+        const credit = updatedData
+          .filter((cust) => cust.balance > 0)
+          .reduce((sum, cust) => sum + Math.abs(cust.balance), 0);
+
+        const debit = updatedData
+          .filter((cust) => cust.balance < 0)
+          .reduce((sum, cust) => sum + cust.balance, 0);
+
+        return {
+          customers: {
+            ...state.customers,
+            data: updatedData,
+            statusInsights: {
+              credit,
+              debit,
+            },
+          },
+        };
+      });
+
       return customer;
     } catch (error) {
       console.error("Error creating customer:", error);
@@ -367,7 +428,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     }
   },
 
-  createTransaction: async (
+  createCustomerTransaction: async (
     customer: Customer,
     amount: number,
     transactionType: "payIn" | "payOut",
@@ -381,7 +442,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const success = await service.createTransaction(
+      const success = await service.createCustomerTransaction(
         customer,
         amount,
         transactionType,
@@ -433,7 +494,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     }
   },
 
-  updateTransaction: async (
+  updateCustomerTransaction: async (
     date: Date,
     paymentMode: string,
     bankAccount: any,
@@ -445,7 +506,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const updatedLedger = await service.UpdateTransaction(
+      const updatedLedger = await service.UpdateCustomerTransaction(
         date,
         paymentMode,
         bankAccount,
@@ -463,12 +524,243 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     }
   },
 
-  deleteTransaction: async (rowId) => {
+  deleteCustomerTransaction: async (rowId) => {
     const { service } = get();
     if (!service) throw new Error("Service not initialized");
     set({ loading: true, error: null });
     try {
-      const success = await service.deleteTransaction(rowId);
+      const success = await service.deleteCustomerTransaction(rowId);
+      return success;
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      set({ error: "Failed to delete transaction" });
+      return false;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchVendors: async () => {
+    const { service } = get();
+    if (!service) return;
+
+    set({ loading: true, error: null });
+    try {
+      const { statusInsights, vendors } = await service.getVendors();
+      set({ vendors: { statusInsights, data: vendors } });
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      set({ error: "Failed to fetch vendors" });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  createVendor: async (vendorData) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+    try {
+      const { vendor, openingBalance } = await service.createVendor(vendorData);
+
+      const initialBalance = openingBalance || 0;
+      const updatedVendor = {
+        ...vendor,
+        balance: initialBalance,
+      };
+
+      set((state) => {
+        const updatedData = [updatedVendor, ...state.vendors.data];
+
+        const credit = updatedData
+          .filter((vendor) => vendor.balance > 0)
+          .reduce((sum, vendor) => sum + Math.abs(vendor.balance), 0);
+
+        const debit = updatedData
+          .filter((vendor) => vendor.balance < 0)
+          .reduce((sum, vendor) => sum + vendor.balance, 0);
+
+        return {
+          vendors: {
+            ...state.vendors,
+            data: updatedData,
+            statusInsights: {
+              credit,
+              debit,
+            },
+          },
+        };
+      });
+
+      return vendor;
+    } catch (error) {
+      console.error("Error creating vendor:", error);
+      set({ error: "Failed to create vendor" });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  updateVendor: async (id, updates) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+    try {
+      const updatedVendor = await service.updateVendor(id, updates);
+      set((state) => ({
+        ...state,
+        vendors: {
+          ...state.vendors,
+          data: state.vendors.data.map((vend) =>
+            vend.id === id ? updatedVendor : vend
+          ),
+        },
+      }));
+      return updatedVendor;
+    } catch (error) {
+      console.error("Error updating vendor:", error);
+      set({ error: "Failed to update vendor" });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchVendorLedger: async (
+    vendorId: string,
+    dateRange?: { from?: Date; to?: Date },
+    orderType: "ASC" | "DESC" = "DESC",
+    rowsPerPage = "20",
+    page = "1",
+    pendingOnly = false
+  ) => {
+    const { service } = get();
+    if (!service) return;
+
+    set({ loading: true, error: null });
+    try {
+      const { count, data } = await service.getVendorLedger(
+        vendorId,
+        dateRange,
+        orderType,
+        rowsPerPage,
+        page,
+        pendingOnly
+      );
+      return { count, data };
+    } catch (error) {
+      console.error("Error fetching vendor ledgers:", error);
+      set({ error: "Failed to fetch vendor ledgers" });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  createVendorTransaction: async (
+    vendor: Customer,
+    amount: number,
+    transactionType: "payIn" | "payOut",
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string
+  ) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+    try {
+      const success = await service.createVendorTransaction(
+        vendor,
+        amount,
+        transactionType,
+        date,
+        paymentMode,
+        bankAccount,
+        notes
+      );
+      set((state) => {
+        const updatedData = state.vendors.data.map((vend) =>
+          vend.id === vendor.id
+            ? {
+                ...vend,
+                balance:
+                  transactionType === "payIn"
+                    ? vend.balance + amount
+                    : vend.balance - amount,
+              }
+            : vend
+        );
+
+        const credit = updatedData
+          .filter((vend) => vend.balance > 0)
+          .reduce((sum, vend) => sum + Math.abs(vend.balance), 0);
+
+        const debit = updatedData
+          .filter((vend) => vend.balance < 0)
+          .reduce((sum, vend) => sum + vend.balance, 0);
+
+        return {
+          vendors: {
+            ...state.vendors,
+            data: updatedData,
+            statusInsights: {
+              credit,
+              debit,
+            },
+          },
+        };
+      });
+
+      return success;
+    } catch (error) {
+      console.error("Error creating transaction:", error);
+      set({ error: "Failed to create transaction" });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  updateVendorTransaction: async (
+    date: Date,
+    paymentMode: string,
+    bankAccount: any,
+    notes: string,
+    vendorLedger: CustomerLedger
+  ) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+
+    set({ loading: true, error: null });
+    try {
+      const updatedLedger = await service.UpdateVendorTransaction(
+        date,
+        paymentMode,
+        bankAccount,
+        notes,
+        vendorLedger
+      );
+
+      return updatedLedger;
+    } catch (error) {
+      console.error("Error creating transaction:", error);
+      set({ error: "Failed to create transaction" });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  deleteVendorTransaction: async (rowId) => {
+    const { service } = get();
+    if (!service) throw new Error("Service not initialized");
+    set({ loading: true, error: null });
+    try {
+      const success = await service.deleteVendorTransaction(rowId);
       return success;
     } catch (error) {
       console.error("Error deleting transaction:", error);

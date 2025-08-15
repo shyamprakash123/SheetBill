@@ -36,8 +36,9 @@ type PaymentTransactionProps = {
   onOpenChange: (open: boolean) => void;
   transactionType: "payIn" | "payOut";
   customer: Customer;
-  onSuccess?: () => void;
+  onSuccess?: (updatedLedger: CustomerLedger | undefined) => void;
   ledger?: CustomerLedger;
+  userType: "customer" | "vendor";
 };
 
 function formatBanksList(banks: BankDetails[]): string {
@@ -56,10 +57,16 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
   customer,
   onSuccess,
   ledger,
+  userType,
 }) => {
-  console.log(ledger);
-  const { settings, fetchAllSettings, createTransaction, updateTransaction } =
-    useInvoiceStore();
+  const {
+    settings,
+    fetchAllSettings,
+    createCustomerTransaction,
+    updateCustomerTransaction,
+    createVendorTransaction,
+    updateVendorTransaction,
+  } = useInvoiceStore();
 
   const navigate = useNavigate();
 
@@ -148,23 +155,45 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
       setLoading(true);
       let updatedLedger;
       if (ledger) {
-        updatedLedger = await updateTransaction(
-          paymentDate,
-          paymentType,
-          bankAccount,
-          notes,
-          ledger
-        );
+        if (userType === "customer") {
+          updatedLedger = await updateCustomerTransaction(
+            paymentDate,
+            paymentType,
+            bankAccount,
+            notes,
+            ledger
+          );
+        } else {
+          updatedLedger = await updateVendorTransaction(
+            paymentDate,
+            paymentType,
+            bankAccount,
+            notes,
+            ledger
+          );
+        }
       } else {
-        await createTransaction(
-          customer,
-          parseFloat(amount),
-          transactionType,
-          paymentDate,
-          paymentType,
-          bankAccount,
-          notes
-        );
+        if (userType === "customer") {
+          await createTransaction(
+            customer,
+            parseFloat(amount),
+            transactionType,
+            paymentDate,
+            paymentType,
+            bankAccount,
+            notes
+          );
+        } else {
+          await createVendorTransaction(
+            customer,
+            parseFloat(amount),
+            transactionType,
+            paymentDate,
+            paymentType,
+            bankAccount,
+            notes
+          );
+        }
       }
       setLoading(false);
       // Optionally, reset the form or redirect
@@ -232,7 +261,8 @@ const PaymentTransaction: React.FC<PaymentTransactionProps> = ({
             {transactionType === "payIn" ? "Pay In" : "Pay Out"}
           </DrawerTitle>
           <DrawerDescription className="mt-1 text-base">
-            {customer?.companyDetails.companyName || customer?.name}
+            {customer?.companyDetails.companyName || customer?.name} ({userType}
+            )
           </DrawerDescription>
         </DrawerHeader>
         <DrawerBody className="flex-grow overflow-auto">
